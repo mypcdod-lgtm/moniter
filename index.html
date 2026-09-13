@@ -168,11 +168,33 @@
               </div>
             </div>
 
-            <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-200 transition transform active:scale-98 flex items-center justify-center gap-2">
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-200 transition transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
               <svg class="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4 18l8 4 8-4-8-16zm0 4.5l4.5 9-4.5 2.25L7.5 15.5l4.5-9z"/></svg>
               <span>Sign In with Firebase</span>
             </button>
           </form>
+
+          <!-- Quick 1-Click Login Shortcuts -->
+          <div class="pt-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">⚡ 1-Click Instant Login:</span>
+              <span class="text-[10px] text-indigo-600 font-semibold">No typing needed</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" onclick="quickFillAndLogin('admin')" class="px-2 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 shadow-xs transition text-center cursor-pointer flex flex-col items-center gap-0.5">
+                <span class="text-sm">👑</span>
+                <span>Admin</span>
+              </button>
+              <button type="button" onclick="quickFillAndLogin('hod')" class="px-2 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold border border-purple-200 shadow-xs transition text-center cursor-pointer flex flex-col items-center gap-0.5">
+                <span class="text-sm">👨‍🏫</span>
+                <span>HOD</span>
+              </button>
+              <button type="button" onclick="quickFillAndLogin('teacher')" class="px-2 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200 shadow-xs transition text-center cursor-pointer flex flex-col items-center gap-0.5">
+                <span class="text-sm">📱</span>
+                <span>Teacher</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Role Login Guide -->
           <div class="pt-4 border-t border-slate-100 space-y-3">
