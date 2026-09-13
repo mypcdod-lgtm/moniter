@@ -55,16 +55,43 @@ The login screen supports auto-role routing based on the registered Gmail addres
 
 ---
 
+## 📱 PWA & Direct App Download (No App Store Needed!)
+
+This application is configured as a full **Progressive Web App (PWA)**:
+- Anyone in your college or department can visit the URL in Chrome, Edge, or Safari.
+- Click the **`[ 📲 Install App ]`** button in the top navigation bar or select **"Add to Home Screen"** in your mobile browser.
+- It immediately installs as an app on your phone, tablet, or PC without needing Google Play Store or Apple App Store.
+- Includes offline fallback via `frontend/sw.js` and custom app icons.
+
+---
+
+## 📍 GPS Teacher Check-In (100% Free)
+
+- Uses device hardware GPS through the browser `navigator.geolocation` API.
+- Mathematically verified on the backend using the **Haversine formula** against classroom coordinates (`latitude`, `longitude`, `geo_radius_meters`).
+- Zero external paid APIs required!
+
+---
+
 ## 🚀 How to Run
 
-### Direct in Browser (No Server Needed)
+### 1. Start the FastAPI Backend (API & WebSockets)
 ```bash
-open /Users/sairam/Documents/mymonıterxx/index.html
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+- API Docs & Swagger UI: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/api/health`
+
+### 2. Run Backend Unit & Integration Tests
+```bash
+pytest backend/tests/test_api.py -v
 ```
 
-### Via Local Python Server
+### 3. Start the Web & PWA Frontend
 ```bash
-cd /Users/sairam/Documents/mymonıterxx
-python3 -m http.server 3000
+python server.py
 ```
-Then visit **`http://localhost:3000`** in your browser.
+Open **`http://localhost:3000`** in any web browser.
+

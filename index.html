@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MyMonitorXX- Campus Timetable & Live Monitoring Portal</title>
+  <!-- PWA Meta & Manifest -->
+  <link rel="manifest" href="frontend/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="frontend/icons/icon-192x192.png">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: Plus Jakarta Sans -->
@@ -36,7 +42,7 @@
         </div>
       </div>
 
-      <!-- Center: Role Switcher (Visible when Authenticated) -->
+      <!-- Center: Role Switcher (ONLY Visible for Master Admin) -->
       <div id="header-role-switcher" class="hidden flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
         <button onclick="setRole('admin')" data-role="admin" class="role-pill-btn flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 transition-all">
           <span class="text-sm sm:text-base">👨💼</span>
@@ -57,9 +63,37 @@
       <div class="flex items-center gap-2 sm:gap-3">
 
 
+        <!-- PWA Install App Button -->
+        <button id="btn-install-pwa" onclick="installPWAApp()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-bold shadow-sm transition transform active:scale-95 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden sm:inline">Install App</span>
+          <span class="sm:hidden">Install</span>
+        </button>
+
         <div id="header-clock" class="hidden md:flex items-center gap-2 text-xs font-mono font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot"></span>
           <span id="live-clock">Loading time...</span>
+        </div>
+
+        <!-- Interactive Notification Bell Dropdown -->
+        <div class="relative">
+          <button id="header-notif-btn" onclick="toggleNotificationDropdown()" title="Campus Alerts & Notifications" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition relative cursor-pointer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span id="notif-badge" class="hidden absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+          </button>
+
+          <!-- Notification Dropdown Panel -->
+          <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div class="p-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                🔔 Live Alerts & Notifications
+              </span>
+              <button onclick="markAllNotificationsRead()" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer">Mark all read</button>
+            </div>
+            <div id="notification-list" class="max-h-72 overflow-y-auto divide-y divide-slate-100 p-1">
+              <div class="p-4 text-center text-xs text-slate-400">No new alerts yet</div>
+            </div>
+          </div>
         </div>
 
         <!-- User Profile Pill & Sign Out (Visible when Logged In) -->
@@ -134,43 +168,31 @@
               </div>
             </div>
 
-            <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-200 transition transform active:scale-98">
-              Sign In to Portal
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-200 transition transform active:scale-98 flex items-center justify-center gap-2">
+              <svg class="w-4 h-4 text-amber-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4 18l8 4 8-4-8-16zm0 4.5l4.5 9-4.5 2.25L7.5 15.5l4.5-9z"/></svg>
+              <span>Sign In with Firebase</span>
             </button>
           </form>
 
-          <!-- Quick Demo 1-Click Login Shortcuts -->
-          <div class="pt-4 border-t border-slate-100 space-y-2.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block text-center">Quick 1-Click Demo Login</span>
-            <div class="grid grid-cols-3 gap-2">
-              <button onclick="quickLogin('admin')" class="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 transition text-center text-xs">
-                <span class="font-bold text-indigo-900 block">👨💼 Admin</span>
-                <span class="text-[10px] text-indigo-600 truncate block">Default Acc</span>
-              </button>
-              <button onclick="quickLogin('hod')" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-center text-xs">
-                <span class="font-bold text-slate-800 block">👨🏫 HOD</span>
-                <span class="text-[10px] text-slate-500 truncate block">IT Dept</span>
-              </button>
-              <button onclick="quickLogin('teacher')" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition text-center text-xs">
-                <span class="font-bold text-slate-800 block">📱 Teacher</span>
-                <span class="text-[10px] text-slate-500 truncate block">Arun (PWA)</span>
-              </button>
+          <!-- Role Login Guide -->
+          <div class="pt-4 border-t border-slate-100 space-y-3">
+            <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-2">
+              <div class="flex items-center gap-1.5 font-bold text-slate-800">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <span>Role-Protected Access Control:</span>
+              </div>
+              <p class="text-[11px] text-slate-500 leading-relaxed">
+                Enter your Gmail & Password. The system automatically verifies your role and redirects you directly to your assigned dashboard:
+              </p>
+              <ul class="text-[11px] space-y-1 font-medium text-slate-700">
+                <li>👑 <strong>Administrator:</strong> Master Timetable, HOD Management, Campus Rules</li>
+                <li>👨🏫 <strong>HOD:</strong> Live Class Monitoring, Substitute Assignment, Leave Approval</li>
+                <li>📱 <strong>Teacher:</strong> Daily Schedule, Class Check-In, Leave Requests</li>
+              </ul>
+              <div class="pt-2 border-t border-slate-200/80 text-[11px]">
+                <span class="text-slate-500">Default Admin:</span> <code class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold">canvaonly322@gmail.com</code>
+              </div>
             </div>
-          </div>
-
-          <!-- Hierarchy Policy Alert -->
-          <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1.5">
-            <div class="flex items-center gap-1.5 font-bold text-slate-800">
-              <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>Default Credentials & Hierarchy:</span>
-            </div>
-            <p class="text-[11px]">
-              <strong>Default Admin:</strong> <code class="bg-indigo-100 text-indigo-800 px-1 rounded font-mono font-bold">canvaonly322@gmail.com</code> | Pass: <code class="bg-indigo-100 text-indigo-800 px-1 rounded font-mono font-bold">123BALASELVARAJA123</code>
-            </p>
-            <p class="text-[11px] text-slate-500">
-              👑 <strong>Admin</strong> creates HODs with Gmail & Password.<br>
-              👨🏫 <strong>HOD</strong> creates Teachers with Gmail & Password.
-            </p>
           </div>
         </div>
 
@@ -529,6 +551,7 @@
                       <th class="py-3 px-4">Applied Date</th>
                       <th class="py-3 px-4">Generated By</th>
                       <th class="py-3 px-4">Status</th>
+                      <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="admin-versions-tbody"></tbody>
@@ -559,6 +582,7 @@
                       <th class="py-3 px-4">Department</th>
                       <th class="py-3 px-4">Rooms / Halls Supervised</th>
                       <th class="py-3 px-4">Status</th>
+                      <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="admin-hods-tbody"></tbody>
@@ -570,68 +594,140 @@
           <!-- TAB: GENERATE TIMETABLE STUDIO -->
           <div id="admin-tab-generate-timetable" class="admin-tab-pane hidden space-y-6">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs">
-              <div class="border-b border-slate-100 pb-4 mb-6">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">Autonomous Engine</span>
-                <h2 class="text-xl font-bold text-slate-900 mt-2">Generate College Timetable</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Specify constraint rules and let the algorithm schedule 48 daily classes across departments without collisions.</p>
+              <div class="border-b border-slate-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">Autonomous AI Engine</span>
+                  <h2 class="text-xl font-bold text-slate-900 mt-2">Generate College Timetable</h2>
+                  <p class="text-xs text-slate-500 mt-0.5">Constraint-satisfaction AI scheduler: 0 teacher double-booking, 0 room clashes, 2-period lab blocks & weekly period quotas.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-600">Working Days:</span>
+                  <select id="gen-working-days" class="text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                    <option value="5" selected>5 Days (Mon - Fri • 35 slots/sec)</option>
+                    <option value="6">6 Days (Mon - Sat • 42 slots/sec)</option>
+                  </select>
+                </div>
               </div>
 
-              <!-- Conditions & Rules Form -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
+              <!-- 1. COLLEGE BELL SCHEDULE (7 PERIODS + 2 BREAKS) -->
+              <div class="space-y-3 mb-6">
+                <div class="flex items-center justify-between">
                   <h4 class="font-bold text-sm text-slate-800 flex items-center gap-2">
                     <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs flex items-center justify-center font-bold">1</span>
-                    Workload & Faculty Constraints
+                    College Bell Schedule (09:00 AM - 04:00 PM)
                   </h4>
-                  <div class="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-200">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <label class="text-xs font-semibold text-slate-700">Max Teaching Hours / Day</label>
-                        <p class="text-[11px] text-slate-500">Limits workload to prevent faculty burnout</p>
-                      </div>
-                      <select class="text-xs font-semibold bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800">
-                        <option>4 Hours Max</option>
-                        <option selected>5 Hours Max</option>
-                        <option>6 Hours Max</option>
-                      </select>
-                    </div>
-                    <div class="flex items-center justify-between pt-2 border-t border-slate-200">
-                      <div>
-                        <label class="text-xs font-semibold text-slate-700">Consecutive Class Cap</label>
-                        <p class="text-[11px] text-slate-500">Enforce rest breaks between lecture slots</p>
-                      </div>
-                      <select class="text-xs font-semibold bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800">
-                        <option selected>Max 2 consecutive hours</option>
-                        <option>Max 3 consecutive hours</option>
-                      </select>
-                    </div>
+                  <span class="text-[11px] text-indigo-600 bg-indigo-50 font-semibold px-2 py-0.5 rounded-full">7 Periods (50m) • 1 Morning Break • 1 Lunch</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 text-center text-xs">
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 1</span>
+                    <input id="bell-p1" type="text" value="09:00 - 09:50" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 2</span>
+                    <input id="bell-p2" type="text" value="09:50 - 10:40" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+                    <span class="text-[10px] font-bold text-amber-800 uppercase block">☕ Break</span>
+                    <input id="bell-mbreak" type="text" value="10:40 - 11:00" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-amber-900">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 3</span>
+                    <input id="bell-p3" type="text" value="11:00 - 11:50" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 4</span>
+                    <input id="bell-p4" type="text" value="11:50 - 12:40" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span class="text-[10px] font-bold text-emerald-800 uppercase block">🍱 Lunch</span>
+                    <input id="bell-lunch" type="text" value="12:40 - 01:30" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-emerald-900">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 5</span>
+                    <input id="bell-p5" type="text" value="01:30 - 02:20" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 6</span>
+                    <input id="bell-p6" type="text" value="02:20 - 03:10" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                  <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase block">Period 7</span>
+                    <input id="bell-p7" type="text" value="03:10 - 04:00" class="w-full text-center font-mono text-[11px] font-bold bg-transparent border-0 mt-0.5 text-slate-800">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. FACULTY, SUBJECT & CLASS MAPPING (WEEKLY PERIODS QUOTA & CROSS-SECTION PROTECTION) -->
+              <div class="space-y-3 mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                      <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs flex items-center justify-center font-bold">2</span>
+                      Faculty, Subject & Class Mapping (With Weekly Periods Quota)
+                    </h4>
+                    <p class="text-[11px] text-slate-500">Specify which teacher teaches which class(es) and how many periods/week. E.g. Arun Kumar teaches Python to both Sec A & Sec B.</p>
+                  </div>
+                  <button type="button" onclick="openModal('modal-add-subject-mapping')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    <span>+ Add Mapping</span>
+                  </button>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-2xl">
+                  <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th class="py-2.5 px-3">Faculty / Teacher</th>
+                        <th class="py-2.5 px-3">Subject Name & Code</th>
+                        <th class="py-2.5 px-3">Assigned Class / Sections</th>
+                        <th class="py-2.5 px-3">Type</th>
+                        <th class="py-2.5 px-3 text-center">Periods / Week (Per Class)</th>
+                        <th class="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="gen-mappings-tbody">
+                      <!-- Rendered dynamically via renderSubjectMappings() -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 3. ADVANCED CONSTRAINTS & AUDIT -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <!-- NAAN MUDHALVAN MANDATORY SCHEDULING CARD -->
+                <div class="p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-300 shadow-xs space-y-2.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      🌟 Naan Mudhalvan
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input id="toggle-naan-mudhalvan" type="checkbox" checked class="sr-only peer">
+                      <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+                  <p class="text-[11px] text-amber-900 leading-snug">Every Monday, 4 mandatory skill periods locked across all classes.</p>
+                  <div class="inline-flex items-center gap-1.5 bg-amber-100/90 text-amber-900 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-amber-300/80">
+                    <span>⏰ Monday Morning: Period 1, 2, 3, 4</span>
                   </div>
                 </div>
 
-                <div class="space-y-4">
-                  <h4 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs flex items-center justify-center font-bold">2</span>
-                    Lab & Infrastructure Constraints
-                  </h4>
-                  <div class="p-4 bg-slate-50 rounded-xl space-y-3 border border-slate-200">
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <label class="text-xs font-semibold text-slate-700">Practical Lab Allocation</label>
-                        <p class="text-[11px] text-slate-500">Group labs into contiguous slots</p>
-                      </div>
-                      <select class="text-xs font-semibold bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800">
-                        <option selected>2-Period Continuous Block</option>
-                        <option>3-Period Continuous Block</option>
-                      </select>
-                    </div>
-                    <div class="flex items-center justify-between pt-2 border-t border-slate-200">
-                      <div>
-                        <label class="text-xs font-semibold text-slate-700">Friday Afternoon Policy</label>
-                        <p class="text-[11px] text-slate-500">Reserve post 3:00 PM for sports / club hours</p>
-                      </div>
-                      <input type="checkbox" checked class="w-4 h-4 text-indigo-600 rounded">
-                    </div>
-                  </div>
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span class="text-xs font-bold text-slate-700 block">🔒 Cross-Class Clash Lock</span>
+                  <p class="text-[11px] text-slate-500">If a faculty teaches Section A and B, the AI guarantees they are never booked in both at the same period.</p>
+                  <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Hard Constraint Active</span>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span class="text-xs font-bold text-slate-700 block">🔬 Lab Block 2-Hour Pairs</span>
+                  <p class="text-[11px] text-slate-500">Lab courses automatically allocate 2 consecutive periods (P1-P2, P3-P4, or P5-P6) in dedicated labs.</p>
+                  <span class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">✓ 2-Period Block Active</span>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span class="text-xs font-bold text-slate-700 block">⚡ Daily Repetition Cap</span>
+                  <p class="text-[11px] text-slate-500">Caps theory subjects to max 2 periods per day per section to avoid subject fatigue for students.</p>
+                  <span class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">✓ Max 2 Daily Slots</span>
                 </div>
               </div>
 
@@ -651,16 +747,16 @@
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                     <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span>Timetable Draft v3.3 Successfully Generated</span>
+                    <span id="gen-results-title">Timetable Successfully Generated</span>
                   </div>
-                  <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white">0 Conflicts</span>
+                  <span id="gen-results-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white">0 Teacher Clashes • 0 Room Clashes</span>
                 </div>
-                <p class="text-xs text-emerald-700">All 38 teachers satisfied their weekly hours limits. All 18 rooms assigned within capacity. Ready to apply campus-wide.</p>
+                <p id="gen-results-desc" class="text-xs text-emerald-700">All faculty weekly quotas satisfied. Teachers handling multiple classes are completely collision-free across all periods. Applied to Master Schedule Matrix.</p>
                 <div class="flex gap-3 pt-2">
-                  <button onclick="applyGeneratedTimetable()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">
-                    ✓ Apply Timetable Campus-Wide
+                  <button onclick="switchAdminTab('current-timetable')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                    👁 View Generated Master Timetable
                   </button>
-                  <button onclick="showToast('Timetable v3.3 saved as draft', 'info')" class="px-4 py-2 bg-white text-slate-700 rounded-xl text-xs font-semibold border border-slate-300 hover:bg-slate-50 transition">
+                  <button onclick="showToast('Timetable saved to draft versions', 'info')" class="px-4 py-2 bg-white text-slate-700 rounded-xl text-xs font-semibold border border-slate-300 hover:bg-slate-50 transition cursor-pointer">
                     Save as Draft Only
                   </button>
                 </div>
@@ -668,9 +764,9 @@
 
               <!-- Trigger Button -->
               <div class="mt-6 flex justify-end">
-                <button id="btn-run-generator" onclick="runTimetableGeneration()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md transition flex items-center gap-2">
+                <button id="btn-run-generator" onclick="runTimetableGeneration()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-md transition flex items-center gap-2 cursor-pointer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                  <span>Run Automated Timetable Generator</span>
+                  <span>Run AI Timetable Generator</span>
                 </button>
               </div>
             </div>
@@ -695,6 +791,7 @@
                       <th class="py-3 px-4">Dept</th>
                       <th class="py-3 px-4">Workload</th>
                       <th class="py-3 px-4">Status</th>
+                      <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="admin-teachers-tbody"></tbody>
@@ -706,8 +803,17 @@
           <!-- TAB: SUBJECTS -->
           <div id="admin-tab-subjects" class="admin-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-4">Course Curriculum & Registered Subjects</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Course Curriculum & Registered Subjects</h3>
+                  <p class="text-xs text-slate-500">Subjects configured for AI timetable constraint solving</p>
+                </div>
+                <button onclick="openModal('modal-add-subject')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  <span>+ Add Subject</span>
+                </button>
+              </div>
+              <div id="admin-subjects-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
                   <div class="flex justify-between items-start">
                     <span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded">IT301</span>
@@ -731,43 +837,58 @@
           <!-- TAB: CLASSES & ROOMS -->
           <div id="admin-tab-classes" class="admin-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-3">Academic Classes & Student Batches</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <span class="text-base font-bold text-slate-800">IT-A</span>
-                  <p class="text-xs text-slate-500 mt-0.5">60 Students • Room C204</p>
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Academic Classes & Student Batches</h3>
+                  <p class="text-xs text-slate-500">Student sections and assigned base lecture halls</p>
                 </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <span class="text-base font-bold text-slate-800">IT-B</span>
-                  <p class="text-xs text-slate-500 mt-0.5">58 Students • Room C205</p>
-                </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <span class="text-base font-bold text-slate-800">IT-C</span>
-                  <p class="text-xs text-slate-500 mt-0.5">62 Students • Room C206</p>
-                </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                  <span class="text-base font-bold text-slate-800">IT-D</span>
-                  <p class="text-xs text-slate-500 mt-0.5">59 Students • Room C207</p>
-                </div>
+                <button onclick="openModal('modal-add-batch')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  <span>+ Add Class / Batch</span>
+                </button>
+              </div>
+              <div id="admin-classes-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- Dynamically rendered via renderAdminBatches() -->
               </div>
             </div>
           </div>
 
           <div id="admin-tab-classrooms" class="admin-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-3">Classrooms & Laboratory Infrastructure</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Classrooms & Laboratory Infrastructure</h3>
+                  <p class="text-xs text-slate-500">Each hall includes GPS coordinates for automatic check-in verification</p>
+                </div>
+                <button onclick="openModal('modal-add-room')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  <span>+ Add Classroom (With GPS)</span>
+                </button>
+              </div>
+              <div id="admin-rooms-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span class="font-bold text-slate-900">Room C204</span>
+                  <div class="flex justify-between items-start">
+                    <span class="font-bold text-slate-900">Room C204</span>
+                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
+                  </div>
                   <p class="text-xs text-slate-500 mt-0.5">Smart Lecture Hall • Cap: 65</p>
+                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9716°N, 77.5946°E (±50m)</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span class="font-bold text-slate-900">Room C205</span>
+                  <div class="flex justify-between items-start">
+                    <span class="font-bold text-slate-900">Room C205</span>
+                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
+                  </div>
                   <p class="text-xs text-slate-500 mt-0.5">Standard Lecture Hall • Cap: 60</p>
+                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9717°N, 77.5947°E (±50m)</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span class="font-bold text-slate-900">Lab 2 (AI Lab)</span>
+                  <div class="flex justify-between items-start">
+                    <span class="font-bold text-slate-900">Lab 2 (AI Lab)</span>
+                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
+                  </div>
                   <p class="text-xs text-slate-500 mt-0.5">50 High-End Workstations</p>
+                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9721°N, 77.5951°E (±60m)</span>
                 </div>
               </div>
             </div>
@@ -776,34 +897,62 @@
           <!-- TAB: CURRENT TIMETABLE MATRIX -->
           <div id="admin-tab-current-timetable" class="admin-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <div class="flex justify-between items-center mb-4">
+              <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
                 <div>
-                  <h3 class="font-bold text-slate-900 text-base">Campus Active Timetable (v3.2)</h3>
-                  <p class="text-xs text-slate-500">Weekly Master Schedule Matrix</p>
+                  <h3 class="font-bold text-slate-900 text-base">Campus Active Timetable Matrix</h3>
+                  <p class="text-xs text-slate-500">Weekly Master Schedule (09:00 AM - 04:00 PM • 7 Periods + Morning & Lunch Breaks)</p>
                 </div>
-                <button onclick="window.print()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-semibold text-slate-700">🖨 Print / Export PDF</button>
+                <div class="flex flex-wrap items-center gap-2">
+                  <!-- Section Filter -->
+                  <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                    <span class="text-slate-500 font-semibold">Class:</span>
+                    <select id="tt-filter-section" onchange="renderAdminTimetable()" class="bg-transparent font-bold text-slate-800 outline-hidden">
+                      <option value="ALL">All Classes</option>
+                      <option value="IT-A">IT-A</option>
+                      <option value="IT-B">IT-B</option>
+                      <option value="IT-C">IT-C</option>
+                      <option value="IT-D">IT-D</option>
+                    </select>
+                  </div>
+                  <!-- Day Filter -->
+                  <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                    <span class="text-slate-500 font-semibold">Day:</span>
+                    <select id="tt-filter-day" onchange="renderAdminTimetable()" class="bg-transparent font-bold text-slate-800 outline-hidden">
+                      <option value="ALL">All Days</option>
+                      <option value="Monday">Monday</option>
+                      <option value="Tuesday">Tuesday</option>
+                      <option value="Wednesday">Wednesday</option>
+                      <option value="Thursday">Thursday</option>
+                      <option value="Friday">Friday</option>
+                      <option value="Saturday">Saturday</option>
+                    </select>
+                  </div>
+                  <button onclick="openModal('modal-manual-timetable')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    <span>+ Manual Slot Input</span>
+                  </button>
+                  <button onclick="window.print()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-semibold text-slate-700 cursor-pointer">🖨 Print / Export PDF</button>
+                </div>
               </div>
               <div class="overflow-x-auto">
-                <table class="w-full text-xs text-center border-collapse border border-slate-200">
+                <table class="w-full text-xs text-center border-collapse border border-slate-200 min-w-[1050px] table-fixed">
                   <thead>
                     <tr class="bg-slate-100 font-bold text-slate-700">
-                      <th class="border border-slate-200 p-2">Day / Time</th>
-                      <th class="border border-slate-200 p-2">09:00 - 10:00</th>
-                      <th class="border border-slate-200 p-2">10:00 - 11:00</th>
-                      <th class="border border-slate-200 p-2">11:00 - 12:00</th>
-                      <th class="border border-slate-200 p-2">12:00 - 01:00</th>
-                      <th class="border border-slate-200 p-2">01:00 - 02:00</th>
+                      <th class="border border-slate-200 p-2.5 w-[110px]">Day & Section</th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P1<br><span class="text-[10px] font-normal text-slate-500">09:00-09:50</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P2<br><span class="text-[10px] font-normal text-slate-500">09:50-10:40</span></th>
+                      <th class="border border-amber-200 bg-amber-50 p-2 text-amber-900 w-[65px]">Break<br><span class="text-[9px] font-normal text-amber-700">10:40-11:00</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P3<br><span class="text-[10px] font-normal text-slate-500">11:00-11:50</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P4<br><span class="text-[10px] font-normal text-slate-500">11:50-12:40</span></th>
+                      <th class="border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 w-[65px]">Lunch<br><span class="text-[9px] font-normal text-emerald-700">12:40-01:30</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P5<br><span class="text-[10px] font-normal text-slate-500">01:30-02:20</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P6<br><span class="text-[10px] font-normal text-slate-500">02:20-03:10</span></th>
+                      <th class="border border-slate-200 p-2 w-[125px]">P7<br><span class="text-[10px] font-normal text-slate-500">03:10-04:00</span></th>
+                      <th class="border border-slate-200 p-2 w-[60px] text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    <tr>
-                      <td class="font-bold bg-slate-50 border border-slate-200 p-2">Monday (IT-A)</td>
-                      <td class="border border-slate-200 p-2 bg-indigo-50 font-semibold text-indigo-900">DBMS<br><span class="text-[10px] text-slate-500">Kumar • C204</span></td>
-                      <td class="border border-slate-200 p-2 bg-emerald-50 font-semibold text-emerald-900">Python<br><span class="text-[10px] text-slate-500">Arun • C204</span></td>
-                      <td class="border border-slate-200 p-2 bg-amber-50 font-semibold text-amber-900">Maths<br><span class="text-[10px] text-slate-500">Priya • C204</span></td>
-                      <td class="border border-slate-200 p-2 bg-slate-100 text-slate-400 font-bold">LUNCH BREAK</td>
-                      <td class="border border-slate-200 p-2 bg-purple-50 font-semibold text-purple-900">Python Lab<br><span class="text-[10px] text-slate-500">Arun • Lab 2</span></td>
-                    </tr>
+                  <tbody id="admin-timetable-tbody">
+                    <!-- Dynamically rendered via renderAdminTimetable() -->
                   </tbody>
                 </table>
               </div>
@@ -813,16 +962,17 @@
           <!-- TAB: VERSIONS & SETTINGS -->
           <div id="admin-tab-versions" class="admin-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-2">Timetable Version Management</h3>
-              <p class="text-xs text-slate-500 mb-4">Roll back or inspect snapshots of previous releases.</p>
-              <div class="space-y-3">
-                <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center">
-                  <div>
-                    <h4 class="font-bold text-emerald-900 text-sm">v3.2 - Live Academic Schedule</h4>
-                    <p class="text-xs text-emerald-700">Applied Sep 10, 2026 by AI Scheduler</p>
-                  </div>
-                  <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white">ACTIVE</span>
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Timetable Version & Draft Management</h3>
+                  <p class="text-xs text-slate-500">Roll back, activate, or delete draft snapshots.</p>
                 </div>
+                <button onclick="switchAdminTab('generate-timetable')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                  <span>+ Generate New Draft</span>
+                </button>
+              </div>
+              <div id="admin-versions-cards-container" class="space-y-3">
+                <!-- Dynamically populated via renderAdminTables() -->
               </div>
             </div>
           </div>
@@ -909,6 +1059,13 @@
                 <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-drawer-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
                   <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                   <span>Substitute Management</span>
+                </a>
+                <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+                  <span class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <span>Leave Requests</span>
+                  </span>
+                  <span id="hod-drawer-leaves-badge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">Inbox</span>
                 </a>
 
                 <div class="pt-2">
@@ -1003,6 +1160,13 @@
             <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-sidebar-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
               <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
               <span>Substitute Management</span>
+            </a>
+            <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+              <span class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <span class="font-semibold text-slate-800">Leave Requests</span>
+              </span>
+              <span id="hod-leaves-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Inbox</span>
             </a>
 
             <!-- HOD manages & adds Teachers with Gmail & Password -->
@@ -1228,6 +1392,22 @@
             </div>
           </div>
 
+          <!-- TAB: LEAVE REQUESTS INBOX (HOD APPROVES / REJECTS / REASSIGNS) -->
+          <div id="hod-tab-leaves" class="hod-tab-pane hidden space-y-4">
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Faculty Leave Requests</h3>
+                  <p class="text-xs text-slate-500">Review teacher absence requests, approve/reject, and auto-assign substitutes</p>
+                </div>
+                <button onclick="syncWithBackend()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-semibold text-slate-700">🔄 Refresh Queue</button>
+              </div>
+              <div id="hod-leaves-container" class="space-y-3">
+                <div class="p-6 text-center text-xs text-slate-400">Loading leave requests...</div>
+              </div>
+            </div>
+          </div>
+
           <div id="hod-tab-reports" class="hod-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
               <h3 class="font-bold text-slate-900 text-base mb-2">Department Attendance & Coverage Report</h3>
@@ -1305,6 +1485,10 @@
                 <a href="javascript:void(0)" onclick="switchTeacherTab('history')" data-teacher-tab="history" class="teacher-drawer-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                   <span>Attendance History</span>
+                </a>
+                <a href="javascript:void(0)" onclick="closeTeacherDrawer(); openModal('modal-teacher-leave')" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold transition mt-2 border border-rose-200">
+                  <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  <span>📝 Request Leave</span>
                 </a>
               </nav>
             </div>
@@ -1396,6 +1580,10 @@
             <a href="javascript:void(0)" onclick="switchTeacherTab('history')" data-teacher-tab="history" class="teacher-sidebar-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span>Attendance Logs</span>
+            </a>
+            <a href="javascript:void(0)" onclick="openModal('modal-teacher-leave')" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold transition mt-2 border border-rose-200 cursor-pointer">
+              <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>📝 Request Leave</span>
             </a>
           </nav>
 
@@ -1625,63 +1813,23 @@
               </div>
 
               <div class="overflow-x-auto">
-                <table class="w-full text-xs text-center border-collapse border border-slate-200">
+                <table class="w-full text-xs text-center border-collapse border border-slate-200 min-w-[950px]">
                   <thead>
                     <tr class="bg-slate-100 font-bold text-slate-700">
                       <th class="border border-slate-200 p-2.5">Day</th>
-                      <th class="border border-slate-200 p-2.5">09:00 - 10:00</th>
-                      <th class="border border-slate-200 p-2.5">10:00 - 11:00</th>
-                      <th class="border border-slate-200 p-2.5">11:00 - 12:00</th>
-                      <th class="border border-slate-200 p-2.5">12:00 - 01:00</th>
-                      <th class="border border-slate-200 p-2.5">01:00 - 02:00</th>
-                      <th class="border border-slate-200 p-2.5">02:00 - 03:00</th>
+                      <th class="border border-slate-200 p-2">P1<br><span class="text-[10px] font-normal text-slate-500">09:00-09:50</span></th>
+                      <th class="border border-slate-200 p-2">P2<br><span class="text-[10px] font-normal text-slate-500">09:50-10:40</span></th>
+                      <th class="border border-amber-200 bg-amber-50 p-2 text-amber-900 w-[55px]">Break</th>
+                      <th class="border border-slate-200 p-2">P3<br><span class="text-[10px] font-normal text-slate-500">11:00-11:50</span></th>
+                      <th class="border border-slate-200 p-2">P4<br><span class="text-[10px] font-normal text-slate-500">11:50-12:40</span></th>
+                      <th class="border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 w-[60px]">Lunch</th>
+                      <th class="border border-slate-200 p-2">P5<br><span class="text-[10px] font-normal text-slate-500">01:30-02:20</span></th>
+                      <th class="border border-slate-200 p-2">P6<br><span class="text-[10px] font-normal text-slate-500">02:20-03:10</span></th>
+                      <th class="border border-slate-200 p-2">P7<br><span class="text-[10px] font-normal text-slate-500">03:10-04:00</span></th>
                     </tr>
                   </thead>
-                  <tbody>
-                    <tr>
-                      <td class="font-bold bg-slate-50 border border-slate-200 p-2.5">Monday</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free / Prep</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-A • C204</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-100 text-slate-400 font-bold">LUNCH</td>
-                      <td colspan="2" class="border border-slate-200 p-2.5 bg-purple-50 font-bold text-purple-900">Python Lab (2hr Block)<br><span class="text-[10px] text-slate-500">IT-A • Lab 1</span></td>
-                    </tr>
-                    <tr>
-                      <td class="font-bold bg-slate-50 border border-slate-200 p-2.5">Tuesday</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-B • C205</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-A • C204</span></td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-100 text-slate-400 font-bold">LUNCH</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Department Meeting</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Mentoring</td>
-                    </tr>
-                    <tr>
-                      <td class="font-bold bg-slate-50 border border-slate-200 p-2.5">Wednesday</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-A • C204</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                      <td class="border border-slate-200 p-2.5 bg-purple-50 font-bold text-purple-900">Python Lab<br><span class="text-[10px] text-slate-500">IT-B • Lab 2</span></td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-100 text-slate-400 font-bold">LUNCH</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Office Hours</td>
-                    </tr>
-                    <tr>
-                      <td class="font-bold bg-slate-50 border border-slate-200 p-2.5">Thursday</td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-A • C204</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Research Hours</td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-100 text-slate-400 font-bold">LUNCH</td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-50 font-bold text-indigo-900">Python<br><span class="text-[10px] text-slate-500">IT-B • C205</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Free</td>
-                    </tr>
-                    <tr class="bg-indigo-50/30 font-semibold">
-                      <td class="font-bold bg-indigo-100/60 border border-slate-200 p-2.5 text-indigo-900">Friday (Today)</td>
-                      <td class="border border-slate-200 p-2.5 bg-emerald-50 text-emerald-900 font-bold">DBMS (IT-A)<br><span class="text-[10px] text-emerald-700">✓ Done</span></td>
-                      <td class="border border-slate-200 p-2.5 bg-indigo-100 text-indigo-900 font-black">Python (IT-A)<br><span class="text-[10px] text-indigo-700">🟢 Current</span></td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-50 text-slate-700">Maths (IT-C)<br><span class="text-[10px] text-slate-500">Upcoming</span></td>
-                      <td class="border border-slate-200 p-2.5 bg-slate-100 text-slate-400 font-bold">LUNCH</td>
-                      <td class="border border-slate-200 p-2.5 bg-purple-50 text-purple-900">Lab (IT-A)<br><span class="text-[10px] text-slate-500">Upcoming</span></td>
-                      <td class="border border-slate-200 p-2.5 text-slate-400">Sports / Clubs</td>
-                    </tr>
+                  <tbody id="teacher-weekly-timetable-tbody">
+                    <!-- Dynamically rendered via renderTeacherDashboard() -->
                   </tbody>
                 </table>
               </div>
@@ -1886,7 +2034,423 @@
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- 4. TEACHER SUBMITS LEAVE REQUEST MODAL -->
+  <div id="modal-teacher-leave" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Request Leave of Absence</h3>
+          <p class="text-xs text-slate-500">Notify HOD to arrange class substitutions</p>
+        </div>
+        <button onclick="closeModal('modal-teacher-leave')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="form-teacher-leave" onsubmit="handleTeacherSubmitLeave(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Teacher Name</label>
+          <input id="leave-teacher-name" type="text" readonly class="w-full border border-slate-200 bg-slate-50 rounded-xl p-2.5 text-slate-600 font-semibold">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Leave Date</label>
+          <input id="leave-date" type="date" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Affected Class Periods</label>
+          <div class="grid grid-cols-5 gap-1.5 pt-1">
+            <label class="flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 cursor-pointer text-center">
+              <input type="checkbox" name="leave-period" value="1" class="rounded text-indigo-600">
+              <span class="text-[11px] font-bold mt-1">P1</span>
+              <span class="text-[9px] text-slate-400">9-10 AM</span>
+            </label>
+            <label class="flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 cursor-pointer text-center">
+              <input type="checkbox" name="leave-period" value="2" checked class="rounded text-indigo-600">
+              <span class="text-[11px] font-bold mt-1">P2</span>
+              <span class="text-[9px] text-slate-400">10-11 AM</span>
+            </label>
+            <label class="flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 cursor-pointer text-center">
+              <input type="checkbox" name="leave-period" value="3" class="rounded text-indigo-600">
+              <span class="text-[11px] font-bold mt-1">P3</span>
+              <span class="text-[9px] text-slate-400">11-12 PM</span>
+            </label>
+            <label class="flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 cursor-pointer text-center">
+              <input type="checkbox" name="leave-period" value="4" class="rounded text-indigo-600">
+              <span class="text-[11px] font-bold mt-1">P4</span>
+              <span class="text-[9px] text-slate-400">1-2 PM</span>
+            </label>
+            <label class="flex flex-col items-center p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 cursor-pointer text-center">
+              <input type="checkbox" name="leave-period" value="5" class="rounded text-indigo-600">
+              <span class="text-[11px] font-bold mt-1">P5</span>
+              <span class="text-[9px] text-slate-400">2-3 PM</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Reason for Leave</label>
+          <textarea id="leave-reason" rows="2" placeholder="e.g. Medical emergency, University duty, or Personal leave..." required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800"></textarea>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-teacher-leave')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Submit Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. ADMIN ADDS SUBJECT MODAL -->
+  <div id="modal-add-subject" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Add Course Subject</h3>
+          <p class="text-xs text-slate-500">Register new subject for timetable allocation</p>
+        </div>
+        <button onclick="closeModal('modal-add-subject')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="form-add-subject" onsubmit="handleAdminAddSubject(event)" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Subject Code</label>
+            <input id="new-subj-code" type="text" placeholder="e.g. IT305" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-mono uppercase">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Weekly Hours</label>
+            <input id="new-subj-hours" type="number" min="1" max="10" value="4" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Subject Name</label>
+          <input id="new-subj-name" type="text" placeholder="e.g. Cloud Computing & DevOps" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Course Type</label>
+            <select id="new-subj-type" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+              <option value="Theory">Theory Only</option>
+              <option value="Lab">Practical Lab</option>
+              <option value="Theory + Lab">Theory + Lab</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Semester</label>
+            <select id="new-subj-sem" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+              <option value="3" selected>Semester 3 (Odd)</option>
+              <option value="4">Semester 4 (Even)</option>
+              <option value="5">Semester 5 (Odd)</option>
+              <option value="6">Semester 6 (Even)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Department</label>
+          <input id="new-subj-dept" type="text" value="Information Technology" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-subject')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md">Add Subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. ADMIN ADDS CLASSROOM / LAB WITH GPS COORDINATES MODAL -->
+  <div id="modal-add-room" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Add Classroom / Lab (With GPS)</h3>
+          <p class="text-xs text-slate-500">Configure coordinates for free GPS teacher check-in verification</p>
+        </div>
+        <button onclick="closeModal('modal-add-room')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="form-add-room" onsubmit="handleAdminAddRoom(event)" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Room Code / Number</label>
+            <input id="new-room-code" type="text" placeholder="e.g. C208" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-mono uppercase">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Student Capacity</label>
+            <input id="new-room-capacity" type="number" min="10" max="250" value="60" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Room Type</label>
+            <select id="new-room-type" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+              <option value="Smart Lecture Hall" selected>Smart Lecture Hall</option>
+              <option value="Lecture Hall">Lecture Hall</option>
+              <option value="Laboratory">Laboratory</option>
+              <option value="Seminar Hall">Seminar Hall</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Block / Building</label>
+            <input id="new-room-block" type="text" value="Academic Block C" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+          </div>
+        </div>
+
+        <!-- GPS Coordinates for Free Verification -->
+        <div class="p-3 bg-indigo-50/70 rounded-xl border border-indigo-200/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-indigo-950 flex items-center gap-1.5">
+              📍 GPS Geolocation Coordinates
+            </span>
+            <button type="button" onclick="setCurrentGPSForRoom()" class="text-[10px] text-indigo-700 underline font-semibold">Use My Current GPS</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold text-indigo-800 mb-0.5">Latitude (°N)</label>
+              <input id="new-room-lat" type="number" step="0.00001" value="12.9716" required class="w-full border border-indigo-200 bg-white rounded-lg p-1.5 font-mono text-xs">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-indigo-800 mb-0.5">Longitude (°E)</label>
+              <input id="new-room-lon" type="number" step="0.00001" value="77.5946" required class="w-full border border-indigo-200 bg-white rounded-lg p-1.5 font-mono text-xs">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-indigo-800 mb-0.5">Check-In Radius Fence (Meters)</label>
+            <input id="new-room-radius" type="number" value="60" min="10" max="200" required class="w-full border border-indigo-200 bg-white rounded-lg p-1.5 font-mono text-xs">
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-room')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md">Add Classroom</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD ACADEMIC CLASS / STUDENT BATCH -->
+  <div id="modal-add-batch" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in zoom-in-95">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <span>🎓 Add Class & Student Batch</span>
+        </h3>
+        <button onclick="closeModal('modal-add-batch')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <form id="form-add-batch" onsubmit="handleAdminAddBatch(event)" class="space-y-3.5 pt-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Class / Section Name (e.g., IT-A, CSE-B)</label>
+          <input id="new-batch-name" type="text" placeholder="IT-E" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Student Strength</label>
+            <input id="new-batch-strength" type="number" value="60" min="10" max="150" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Semester / Year</label>
+            <select id="new-batch-sem" class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800">
+              <option value="Sem 1">1st Year (Sem 1)</option>
+              <option value="Sem 3" selected>2nd Year (Sem 3)</option>
+              <option value="Sem 5">3rd Year (Sem 5)</option>
+              <option value="Sem 7">4th Year (Sem 7)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Assigned Base Room</label>
+          <input id="new-batch-room" type="text" placeholder="Room C204" value="Room C204" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-batch')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md">Add Class Batch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL TIMETABLE SLOT INPUT (7 PERIODS) -->
+  <div id="modal-manual-timetable" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 animate-in zoom-in-95">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>✍️ Manual Timetable Schedule Entry</span>
+          </h3>
+          <p class="text-[11px] text-slate-500">Add or override a specific slot in the 7-period master schedule</p>
+        </div>
+        <button onclick="closeModal('modal-manual-timetable')" class="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer">✕</button>
+      </div>
+
+      <form id="form-manual-timetable" onsubmit="handleManualTimetableSubmit(event)" class="space-y-3.5 pt-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Day of the Week</label>
+            <select id="manual-tt-day" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-semibold">
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Section / Batch</label>
+            <input id="manual-tt-section" type="text" placeholder="IT-A" value="IT-A" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Period Slot</label>
+            <select id="manual-tt-period" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-semibold">
+              <option value="1">Period 1 (09:00 - 09:50)</option>
+              <option value="2">Period 2 (09:50 - 10:40)</option>
+              <option value="3">Period 3 (11:00 - 11:50)</option>
+              <option value="4">Period 4 (11:50 - 12:40)</option>
+              <option value="5">Period 5 (01:30 - 02:20)</option>
+              <option value="6">Period 6 (02:20 - 03:10)</option>
+              <option value="7">Period 7 (03:10 - 04:00)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Classroom / Lab</label>
+            <input id="manual-tt-room" type="text" placeholder="C204" value="C204" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 uppercase">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Subject Name or Code</label>
+            <input id="manual-tt-subject" type="text" placeholder="Python (IT301)" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Assigned Teacher</label>
+            <input id="manual-tt-teacher" type="text" placeholder="Arun Kumar" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-manual-timetable')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md cursor-pointer">Add to Master Timetable</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD FACULTY-SUBJECT-CLASS MAPPING -->
+  <div id="modal-add-subject-mapping" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 animate-in zoom-in-95">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>📚 Add Faculty-Subject-Class Assignment</span>
+          </h3>
+          <p class="text-[11px] text-slate-500">Map which faculty teaches which subject & classes with weekly quota</p>
+        </div>
+        <button onclick="closeModal('modal-add-subject-mapping')" class="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer">✕</button>
+      </div>
+
+      <form id="form-add-subject-mapping" onsubmit="handleAddSubjectMapping(event)" class="space-y-3.5 pt-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Faculty / Teacher</label>
+            <input id="map-teacher" type="text" placeholder="Arun Kumar" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Subject Name & Code</label>
+            <input id="map-subject" type="text" placeholder="Python (IT301)" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Assigned Classes (Comma separated)</label>
+            <input id="map-sections" type="text" placeholder="IT-A, IT-B" value="IT-A, IT-B" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+            <span class="text-[10px] text-slate-400">e.g. IT-A, IT-B (Teacher handles both)</span>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Course Format</label>
+            <select id="map-type" class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-semibold">
+              <option value="Theory" selected>Theory (1 Period)</option>
+              <option value="Lab">Practical Lab (2-Period Block)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Weekly Periods / Class</label>
+            <input id="map-quota" type="number" value="6" min="1" max="15" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold">
+            <span class="text-[10px] text-slate-400">e.g. 6 or 7 periods per week</span>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Default Room (Optional)</label>
+            <input id="map-room" type="text" placeholder="Auto-assign" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 uppercase">
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-subject-mapping')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md cursor-pointer">Save Mapping</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modular Clients: Firebase, API, WebSockets & Geolocation -->
+  <script type="module" src="frontend/js/firebase.js"></script>
+  <script src="frontend/js/api.js"></script>
+  <script src="frontend/js/websocket.js"></script>
+  <script src="frontend/js/geolocation.js"></script>
   <script src="app.js"></script>
+
+  <!-- PWA Service Worker Registration & Install Prompt Handler -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('frontend/sw.js')
+          .then((reg) => console.log('✅ ServiceWorker registered with scope:', reg.scope))
+          .catch((err) => console.warn('⚠️ ServiceWorker registration failed:', err));
+      });
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('btn-install-pwa');
+      if (installBtn) {
+        installBtn.classList.remove('hidden');
+      }
+    });
+
+    function installPWAApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the PWA install prompt');
+            if (typeof showToast === 'function') showToast('App installation started!', 'success');
+          }
+          deferredPrompt = null;
+        });
+      } else {
+        if (typeof showToast === 'function') {
+          showToast('To install: Tap your browser menu (⋮ or Share) and select "Install App" or "Add to Home Screen".', 'info');
+        } else {
+          alert('To install: Tap your browser menu (⋮ or Share) and select "Install App" or "Add to Home Screen".');
+        }
+      }
+    }
+  </script>
 </body>
 </html>
