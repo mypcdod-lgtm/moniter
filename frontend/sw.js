@@ -1,5 +1,5 @@
-// FOLIO Service Worker v18.0.0 (Dynamic HOD Vacancy & Substitute Tabs)
-const CACHE_NAME = "folio-v18";
+// FOLIO Service Worker v19.0.0 (Windows Desktop & Mobile PWA)
+const CACHE_NAME = "folio-v19";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
