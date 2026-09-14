@@ -172,9 +172,19 @@ if (!appState.collegeBellSchedule) {
   appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
 }
 
+let cloudSaveTimer = null;
 function saveState() {
   localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+
+  // Sync to Firebase Cloud Firestore across all devices (PC, Mobile, HOD, Teachers)
+  if (window.FirebaseDb && typeof window.FirebaseDb.saveAppState === 'function') {
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(() => {
+      window.FirebaseDb.saveAppState(appState);
+    }, 400);
+  }
 }
+
 
 // Global Toast Notifications
 function showToast(message, type = 'success') {
@@ -2676,4 +2686,112 @@ document.addEventListener('DOMContentLoaded', () => {
   if (appState.currentUser) {
     syncWithBackend();
   }
+
+  // Start Real-Time Firebase Cloud Sync across PC & Mobile
+  syncFromCloudFirestore();
 });
+
+// =========================================================================
+// FIREBASE CLOUD FIRESTORE REAL-TIME SYNCHRONIZATION
+// =========================================================================
+function syncFromCloudFirestore() {
+  if (!window.FirebaseDb) {
+    setTimeout(syncFromCloudFirestore, 400);
+    return;
+  }
+
+  // 1. Subscribe to real-time updates from Firebase Cloud Firestore
+  window.FirebaseDb.subscribeToAppState((cloudState) => {
+    if (cloudState) {
+      applyCloudState(cloudState);
+    }
+  });
+
+  // 2. Initial load from Cloud
+  window.FirebaseDb.loadAppState().then((cloudData) => {
+    if (cloudData) {
+      applyCloudState(cloudData);
+    } else {
+      // If cloud is empty, seed it with initial application state
+      console.log('☁️ Initializing Firebase Cloud Firestore with seed state...');
+      window.FirebaseDb.saveAppState(appState);
+    }
+  });
+}
+
+function applyCloudState(cloudState) {
+  if (!cloudState) return;
+
+  // Merge users safely
+  if (Array.isArray(cloudState.users)) {
+    const existingEmails = new Set(appState.users.map(u => (u.email || '').toLowerCase()));
+    cloudState.users.forEach(u => {
+      if (!existingEmails.has((u.email || '').toLowerCase())) {
+        appState.users.push(u);
+      } else {
+        const idx = appState.users.findIndex(x => (x.email || '').toLowerCase() === (u.email || '').toLowerCase());
+        if (idx !== -1) appState.users[idx] = { ...appState.users[idx], ...u };
+      }
+    });
+  }
+
+  // Merge HODs list
+  if (Array.isArray(cloudState.hodsList)) {
+    cloudState.hodsList.forEach(h => {
+      const idx = appState.hodsList.findIndex(x => String(x.id) === String(h.id) || (x.email || '').toLowerCase() === (h.email || '').toLowerCase());
+      if (idx !== -1) {
+        appState.hodsList[idx] = { ...appState.hodsList[idx], ...h };
+      } else {
+        appState.hodsList.push(h);
+      }
+    });
+  }
+
+  // Merge Teachers list
+  if (Array.isArray(cloudState.teachersList)) {
+    cloudState.teachersList.forEach(t => {
+      const idx = appState.teachersList.findIndex(x => String(x.id) === String(t.id) || (x.email || '').toLowerCase() === (t.email || '').toLowerCase());
+      if (idx !== -1) {
+        appState.teachersList[idx] = { ...appState.teachersList[idx], ...t };
+      } else {
+        appState.teachersList.push(t);
+      }
+    });
+  }
+
+  // Synchronize dynamic campus assets
+  if (Array.isArray(cloudState.subjectsList) && cloudState.subjectsList.length > 0) {
+    appState.subjectsList = cloudState.subjectsList;
+  }
+  if (Array.isArray(cloudState.classroomsList) && cloudState.classroomsList.length > 0) {
+    appState.classroomsList = cloudState.classroomsList;
+  }
+  if (Array.isArray(cloudState.studentBatches) && cloudState.studentBatches.length > 0) {
+    appState.studentBatches = cloudState.studentBatches;
+  }
+  if (Array.isArray(cloudState.masterTimetableSlots) && cloudState.masterTimetableSlots.length > 0) {
+    appState.masterTimetableSlots = cloudState.masterTimetableSlots;
+  }
+  if (Array.isArray(cloudState.timetableVersions) && cloudState.timetableVersions.length > 0) {
+    appState.timetableVersions = cloudState.timetableVersions;
+  }
+  if (Array.isArray(cloudState.subjectTeacherMappings) && cloudState.subjectTeacherMappings.length > 0) {
+    appState.subjectTeacherMappings = cloudState.subjectTeacherMappings;
+  }
+  if (Array.isArray(cloudState.liveMonitoring) && cloudState.liveMonitoring.length > 0) {
+    appState.liveMonitoring = cloudState.liveMonitoring;
+  }
+  if (cloudState.collegeBellSchedule) {
+    appState.collegeBellSchedule = cloudState.collegeBellSchedule;
+  }
+
+  // Update local storage cache
+  localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+
+  // Refresh dynamic UI elements
+  renderQuickLoginButtons();
+  if (appState.currentUser) {
+    renderActiveViews();
+  }
+}
+

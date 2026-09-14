@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v6.0.0 (Cache-Busting & Dynamic 1-Tap HOD/Teacher Logins)
-const CACHE_NAME = "mymonitorxx-v6";
+// MyMonitorXX Service Worker v7.0.0 (Cloud Firestore Real-Time Multi-Device Sync)
+const CACHE_NAME = "mymonitorxx-v7";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
