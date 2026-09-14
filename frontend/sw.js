@@ -1,16 +1,16 @@
 // MyMonitorXX Service Worker v6.0.0 (Cache-Busting & Dynamic 1-Tap HOD/Teacher Logins)
 const CACHE_NAME = "mymonitorxx-v6";
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/app.js",
-  "/frontend/manifest.json",
-  "/frontend/icons/icon-192x192.png",
-  "/frontend/icons/icon-512x512.png",
-  "/frontend/js/api.js",
-  "/frontend/js/websocket.js",
-  "/frontend/js/geolocation.js"
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./frontend/manifest.json",
+  "./frontend/icons/icon-192x192.png",
+  "./frontend/icons/icon-512x512.png",
+  "./frontend/js/api.js",
+  "./frontend/js/websocket.js",
+  "./frontend/js/geolocation.js"
 ];
 
 // Install: Skip waiting immediately to activate fresh worker
