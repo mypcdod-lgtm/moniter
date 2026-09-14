@@ -1,5 +1,5 @@
-// FOLIO Service Worker v12.0.0 (Smart In-App Install Hiding)
-const CACHE_NAME = "folio-v12";
+// FOLIO Service Worker v13.0.0 (AI/DS Department Added)
+const CACHE_NAME = "folio-v13";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
