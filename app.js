@@ -43,11 +43,11 @@ const DEFAULT_STATE = {
   ],
 
   hodStats: {
-    totalClasses: 48,
-    active: 32,
-    scheduled: 9,
-    vacant: 5,
-    substitute: 2
+    totalClasses: 0,
+    active: 0,
+    scheduled: 0,
+    vacant: 0,
+    substitute: 0
   },
 
   liveMonitoring: [
@@ -1069,19 +1069,286 @@ function handleHodAddTeacher(e) {
 // HOD DASHBOARD & LIVE MONITORING
 // =========================================================================
 
-function renderHodDashboard() {
-  document.getElementById('hod-stat-total').textContent = appState.hodStats.totalClasses;
-  document.getElementById('hod-stat-active').textContent = appState.hodStats.active;
-  document.getElementById('hod-stat-scheduled').textContent = appState.hodStats.scheduled;
-  document.getElementById('hod-stat-vacant').textContent = appState.hodStats.vacant;
-  document.getElementById('hod-stat-substitute').textContent = appState.hodStats.substitute;
+// Extract all classes scheduled across all sections for today from masterTimetableSlots
+function getHodTodayDepartmentClasses() {
+  const now = new Date();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  let currentDay = dayNames[now.getDay()];
+  const isWeekend = currentDay === 'Sunday' || currentDay === 'Saturday';
+  const targetDay = isWeekend ? 'Monday' : currentDay;
 
-  // Render Live Monitoring Table
+  const bell = appState.collegeBellSchedule || DEFAULT_STATE.collegeBellSchedule;
+  const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === targetDay);
+
+  const periodKeys = [
+    { pKey: 'p1', periodNum: 1 },
+    { pKey: 'p2', periodNum: 2 },
+    { pKey: 'p3', periodNum: 3 },
+    { pKey: 'p4', periodNum: 4 },
+    { pKey: 'p5', periodNum: 5 },
+    { pKey: 'p6', periodNum: 6 },
+    { pKey: 'p7', periodNum: 7 }
+  ];
+
+  const localToday = now.toLocaleDateString('en-CA');
+  const utcToday = now.toISOString().split('T')[0];
+  const leaves = appState.leavesList || [];
+
+  const allDayClasses = [];
+  let classCounter = 1;
+
+  periodKeys.forEach(pk => {
+    const bellItem = bell.find(b => b.period === pk.periodNum);
+    const timeRange = bellItem ? bellItem.time : '';
+    const times = timeRange.split('-').map(t => t.trim());
+    const startMin = times[0] ? parseTimeToMinutes(times[0]) : 0;
+    const endMin = times[1] ? parseTimeToMinutes(times[1]) : 0;
+
+    daySlots.forEach(slot => {
+      const cellVal = slot[pk.pKey] || '';
+      if (!cellVal || cellVal === '-') {
+        return;
+      }
+
+      // Parse subject, teacher, room
+      let subject = cellVal;
+      let teacher = 'Faculty';
+      let room = slot.section === 'IT-B' ? 'C205' : 'C204';
+
+      if (cellVal.includes('(') && cellVal.includes(')')) {
+        const parts = cellVal.split('(');
+        subject = parts[0].trim();
+        const inside = parts[1].replace(')', '').trim();
+        const insideParts = inside.split('•').map(p => p.trim());
+        if (insideParts.length > 0) teacher = insideParts[0];
+        if (insideParts.length > 1) room = insideParts[1];
+      }
+
+      // Check if this teacher is on leave today
+      const teacherLower = teacher.toLowerCase();
+      const teacherLeave = leaves.find(l => {
+        const lName = (l.teacher_name || '').toLowerCase();
+        const matches = (lName.includes(teacherLower) || teacherLower.includes(lName)) &&
+                        (l.date === localToday || l.date === utcToday) &&
+                        (l.periods ? l.periods.includes(pk.periodNum) : true);
+        return matches;
+      });
+
+      const isLeaveApproved = teacherLeave && teacherLeave.status === 'approved';
+      const substituteTeacher = isLeaveApproved ? (teacherLeave.substitute_teacher || 'Dr. Rajesh') : null;
+      const isVacantPendingLeave = teacherLeave && teacherLeave.status === 'pending';
+
+      allDayClasses.push({
+        id: classCounter++,
+        class: slot.section || 'IT-A',
+        subject: subject,
+        teacher: teacher,
+        room: room,
+        period: pk.periodNum,
+        periodName: `Period ${pk.periodNum}`,
+        time: timeRange,
+        startMin: startMin,
+        endMin: endMin,
+        day: targetDay,
+        isWeekend: isWeekend,
+        isLeaveApproved: isLeaveApproved,
+        substituteTeacher: substituteTeacher,
+        isVacantPendingLeave: isVacantPendingLeave
+      });
+    });
+  });
+
+  return allDayClasses;
+}
+
+function renderHodDashboard() {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const currentDayName = dayNames[now.getDay()];
+  const isWeekend = currentDayName === 'Sunday' || currentDayName === 'Saturday';
+
+  const allTodayClasses = getHodTodayDepartmentClasses();
+
+  // Operating Bounds: 09:00 AM (540 min) to 04:00 PM (960 min)
+  const isAfterHours = currentMinutes >= 960;
+  const isBeforeHours = currentMinutes < 540;
+
+  // Break Intervals: Morning Break (640 - 660), Lunch Break (760 - 810)
+  const isMorningBreak = currentMinutes >= 640 && currentMinutes < 660;
+  const isLunchBreak = currentMinutes >= 760 && currentMinutes < 810;
+  const isBreakTime = isMorningBreak || isLunchBreak;
+
+  let activeCount = 0;
+  let scheduledCount = 0;
+  let vacantCount = 0;
+  let substituteCount = 0;
+
+  allTodayClasses.forEach(row => {
+    if (isWeekend || isAfterHours) {
+      row.status = 'COMPLETED';
+      if (row.substituteTeacher) {
+        substituteCount++;
+      }
+    } else if (isBeforeHours) {
+      row.status = 'SCHEDULED';
+      scheduledCount++;
+    } else if (currentMinutes >= row.endMin) {
+      row.status = 'COMPLETED';
+      if (row.substituteTeacher) {
+        substituteCount++;
+      }
+    } else if (currentMinutes >= row.startMin && currentMinutes < row.endMin) {
+      // CURRENT PERIOD!
+      if (row.isLeaveApproved) {
+        row.status = 'SUBSTITUTE';
+        substituteCount++;
+      } else if (row.isVacantPendingLeave) {
+        row.status = 'VACANT';
+        vacantCount++;
+      } else {
+        row.status = 'ACTIVE';
+        activeCount++;
+      }
+    } else {
+      // Future periods today
+      if (row.isLeaveApproved) {
+        row.status = 'SUBSTITUTE';
+      } else if (row.isVacantPendingLeave) {
+        row.status = 'VACANT';
+        vacantCount++;
+      } else {
+        row.status = 'SCHEDULED';
+      }
+      scheduledCount++;
+    }
+  });
+
+  // Keep appState.liveMonitoring in sync for modal lookup
+  appState.liveMonitoring = allTodayClasses;
+
+  // Update appState.hodStats
+  appState.hodStats = {
+    totalClasses: allTodayClasses.length,
+    active: activeCount,
+    scheduled: scheduledCount,
+    vacant: vacantCount,
+    substitute: substituteCount
+  };
+
+  // Populate Metric Cards
+  const statTotal = document.getElementById('hod-stat-total');
+  const statActive = document.getElementById('hod-stat-active');
+  const statScheduled = document.getElementById('hod-stat-scheduled');
+  const statVacant = document.getElementById('hod-stat-vacant');
+  const statSubstitute = document.getElementById('hod-stat-substitute');
+
+  const statTotalSub = document.getElementById('hod-stat-total-sub');
+  const statActiveSub = document.getElementById('hod-stat-active-sub');
+  const statScheduledSub = document.getElementById('hod-stat-scheduled-sub');
+  const statVacantSub = document.getElementById('hod-stat-vacant-sub');
+  const statSubstituteSub = document.getElementById('hod-stat-substitute-sub');
+
+  if (statTotal) statTotal.textContent = allTodayClasses.length;
+  if (statActive) statActive.textContent = activeCount;
+  if (statScheduled) statScheduled.textContent = scheduledCount;
+  if (statVacant) statVacant.textContent = vacantCount;
+  if (statSubstitute) statSubstitute.textContent = substituteCount;
+
+  // Contextual helper subtitles
+  if (statTotalSub) {
+    statTotalSub.textContent = isWeekend ? 'Weekend • Campus Closed' : `${currentDayName} • IT Dept`;
+  }
+  if (statActiveSub) {
+    if (isWeekend) {
+      statActiveSub.textContent = 'Campus Closed (Weekend)';
+    } else if (isAfterHours) {
+      statActiveSub.textContent = '0 Active • Day Ended at 4:00 PM';
+    } else if (isBeforeHours) {
+      statActiveSub.textContent = '0 Active • Starts at 9:00 AM';
+    } else if (isMorningBreak) {
+      statActiveSub.textContent = '0 Active • Morning Break';
+    } else if (isLunchBreak) {
+      statActiveSub.textContent = '0 Active • Lunch Break';
+    } else {
+      statActiveSub.textContent = `🟢 ${activeCount} Teachers in Class`;
+    }
+  }
+  if (statScheduledSub) {
+    if (isAfterHours) {
+      statScheduledSub.textContent = '✓ All periods concluded today';
+    } else if (isWeekend) {
+      statScheduledSub.textContent = 'No sessions on weekend';
+    } else {
+      statScheduledSub.textContent = `⚪ ${scheduledCount} Later periods today`;
+    }
+  }
+  if (statVacantSub) {
+    statVacantSub.textContent = vacantCount > 0 ? `🔴 ${vacantCount} Requires Substitute!` : '✓ No Unstaffed Classes';
+  }
+  if (statSubstituteSub) {
+    statSubstituteSub.textContent = substituteCount > 0 ? `🟡 ${substituteCount} Active Substitutions` : '0 Substitutions';
+  }
+
+  // Update Workflow Helper Banner
+  const bannerTitle = document.getElementById('hod-banner-title');
+  const bannerDesc = document.getElementById('hod-banner-desc');
+  const bannerAction = document.getElementById('hod-banner-action');
+
+  if (isAfterHours) {
+    if (bannerTitle) bannerTitle.textContent = 'College Hours Concluded for Today';
+    if (bannerDesc) bannerDesc.textContent = `All ${allTodayClasses.length} assigned periods for today have finished (09:00 AM - 04:00 PM). Next sessions begin tomorrow at 09:00 AM.`;
+    if (bannerAction) {
+      bannerAction.innerHTML = '<span class="px-3.5 py-1.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 flex items-center gap-1.5"><span>✓</span> All Sessions Concluded</span>';
+    }
+  } else if (isWeekend) {
+    if (bannerTitle) bannerTitle.textContent = 'Weekend Campus Mode';
+    if (bannerDesc) bannerDesc.textContent = 'No regular classes scheduled on weekend. Timetable resumes Monday morning at 09:00 AM.';
+    if (bannerAction) {
+      bannerAction.innerHTML = '<span class="px-3.5 py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200">Campus Closed</span>';
+    }
+  } else if (isBreakTime) {
+    const bName = isMorningBreak ? 'Morning Break (10:40 - 11:00 AM)' : 'Lunch Break (12:40 - 01:30 PM)';
+    if (bannerTitle) bannerTitle.textContent = `${bName} in Progress`;
+    if (bannerDesc) bannerDesc.textContent = `Campus is currently on ${bName}. Next scheduled period resumes shortly.`;
+    if (bannerAction) {
+      bannerAction.innerHTML = '<span class="px-3.5 py-1.5 bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-300 flex items-center gap-1.5"><span>☕</span> Break Time</span>';
+    }
+  } else if (vacantCount > 0) {
+    if (bannerTitle) bannerTitle.textContent = 'Faculty Absence Alert';
+    if (bannerDesc) bannerDesc.textContent = `${vacantCount} class currently requires substitute faculty to ensure teaching continuity.`;
+    if (bannerAction) {
+      const vacantItem = allTodayClasses.find(c => c.status === 'VACANT') || allTodayClasses[0];
+      bannerAction.innerHTML = `<button onclick="openSubstituteModal(${vacantItem.id})" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"><span>🔴 Assign Substitute</span></button>`;
+    }
+  } else {
+    if (bannerTitle) bannerTitle.textContent = 'HOD Action Protocol • Live Monitoring';
+    if (bannerDesc) bannerDesc.textContent = 'All active periods are staffed with verified faculty presence. Live classroom telemetry active.';
+    if (bannerAction) {
+      bannerAction.innerHTML = '<span class="px-3.5 py-1.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-300 flex items-center gap-1.5"><span>🟢</span> 100% Staffed</span>';
+    }
+  }
+
+  // Update Table Subtitle
+  const tableSub = document.getElementById('hod-live-monitoring-sub');
+  if (tableSub) {
+    if (isAfterHours) {
+      tableSub.textContent = `College hours ended for today (04:00 PM) • All ${allTodayClasses.length} sessions completed`;
+    } else if (isWeekend) {
+      tableSub.textContent = 'Weekend schedule preview (Monday timetable)';
+    } else if (isBreakTime) {
+      tableSub.textContent = 'Break in progress • Resuming next period';
+    } else {
+      tableSub.textContent = 'Real-time classroom sensor & verified teacher check-in status';
+    }
+  }
+
+  // Render Live Monitoring Table Rows
   const tbody = document.getElementById('live-monitoring-tbody');
   if (!tbody) return;
 
   tbody.innerHTML = '';
-  appState.liveMonitoring.forEach(row => {
+  allTodayClasses.forEach(row => {
     const tr = document.createElement('tr');
     tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-sm';
 
@@ -1097,6 +1364,12 @@ function renderHodDashboard() {
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
           <span class="w-2 h-2 rounded-full bg-slate-400"></span>
           SCHEDULED
+        </span>`;
+    } else if (row.status === 'COMPLETED') {
+      statusBadge = `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+          <span>✓</span>
+          COMPLETED
         </span>`;
     } else if (row.status === 'VACANT') {
       statusBadge = `
@@ -1115,32 +1388,37 @@ function renderHodDashboard() {
     let actionBtn = '';
     if (row.status === 'VACANT') {
       actionBtn = `
-        <button onclick="openSubstituteModal(${row.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+        <button onclick="openSubstituteModal(${row.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
           Assign Substitute
         </button>`;
     } else if (row.status === 'SUBSTITUTE') {
       actionBtn = `
         <span class="text-xs text-amber-800 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200">
-          Sub: <strong class="font-semibold">${row.substituteTeacher}</strong>
+          Sub: <strong class="font-semibold">${row.substituteTeacher || 'Assigned'}</strong>
         </span>`;
+    } else if (row.status === 'COMPLETED') {
+      actionBtn = `<span class="text-xs text-slate-400 font-medium">Session Concluded</span>`;
     } else {
       actionBtn = `
-        <button onclick="showToast('Class details for ${row.class} - ${row.subject}', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline">
+        <button onclick="showToast('Class details for ${row.class} - ${row.subject} (${row.room})', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline cursor-pointer">
           View Room
         </button>`;
     }
+
+    const facultyInitial = (row.teacher || 'F').charAt(0).toUpperCase();
 
     tr.innerHTML = `
       <td class="py-3.5 px-4 font-bold text-slate-900">${row.class}</td>
       <td class="py-3.5 px-4 font-medium text-slate-800">${row.subject}</td>
       <td class="py-3.5 px-4 text-slate-700">
         <div class="flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${row.teacher.charAt(0)}</span>
+          <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
           <span>${row.teacher}</span>
         </div>
       </td>
       <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${row.room}</td>
+      <td class="py-3.5 px-4 font-mono text-xs text-slate-600">${row.time}</td>
       <td class="py-3.5 px-4">${statusBadge}</td>
       <td class="py-3.5 px-4 text-right">${actionBtn}</td>
     `;
@@ -3065,12 +3343,16 @@ function startClock() {
     if (clockEl) clockEl.textContent = `${dateStr} • ${timeStr}`;
     if (teacherClockEl) teacherClockEl.textContent = timeStr;
 
-    // Refresh teacher dashboard automatically if minute changed
+    // Refresh teacher and HOD dashboards automatically if minute changed
     const currentMin = now.getMinutes();
     if (currentMin !== lastCheckedMinute) {
       lastCheckedMinute = currentMin;
-      if (appState.currentUser && appState.currentUser.role === 'teacher') {
-        renderTeacherDashboard();
+      if (appState.currentUser) {
+        if (appState.currentUser.role === 'teacher') {
+          renderTeacherDashboard();
+        } else if (appState.currentUser.role === 'hod') {
+          renderHodDashboard();
+        }
       }
     }
   }
@@ -3282,6 +3564,7 @@ function applyCloudState(cloudState) {
     renderHodLeaves();
     renderTeacherLeaves();
     renderTeacherDashboard();
+    renderHodDashboard();
   }
   if (Array.isArray(cloudState.notificationsList)) {
     appState.notificationsList = cloudState.notificationsList;

@@ -1,5 +1,5 @@
-// FOLIO Service Worker v16.0.0 (Dynamic Real-Time Teacher Schedule & Next Class)
-const CACHE_NAME = "folio-v16";
+// FOLIO Service Worker v17.0.0 (Dynamic Real-Time HOD Monitoring & Bell Schedule)
+const CACHE_NAME = "folio-v17";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
