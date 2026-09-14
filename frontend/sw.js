@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v8.0.0 (Resilient Universal PWA Offline & Navigation)
-const CACHE_NAME = "mymonitorxx-v8";
+// MyMonitorXX Service Worker v9.0.0 (Secure Login & Professional Dashboards)
+const CACHE_NAME = "mymonitorxx-v9";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

@@ -217,80 +217,65 @@ function togglePasswordVisibility(inputId) {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-function quickFillAndLogin(role) {
-  const emailField = document.getElementById('login-email');
-  const passField = document.getElementById('login-password');
-  if (role === 'admin') {
-    if (emailField) emailField.value = 'canvaonly322@gmail.com';
-    if (passField) passField.value = '123BALASELVARAJA123';
-  } else if (role === 'hod') {
-    if (emailField) emailField.value = 'hod.it@college.edu';
-    if (passField) passField.value = 'hodpassword123';
-  } else if (role === 'teacher') {
-    if (emailField) emailField.value = 'arun@college.edu';
-    if (passField) passField.value = 'teacherpass123';
-  }
-  handleLogin();
-}
+async function handleAddAdmin(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const name = document.getElementById('new-admin-name')?.value.trim();
+  const email = document.getElementById('new-admin-email')?.value.trim().toLowerCase();
+  const password = document.getElementById('new-admin-password')?.value.trim();
+  const roleType = document.getElementById('new-admin-role-type')?.value || 'General Admin';
 
-function loginAsSpecificUser(email) {
-  const user = (appState.users || []).find(u => u.email.toLowerCase() === email.toLowerCase()) ||
-               (appState.hodsList || []).find(h => h.email && h.email.toLowerCase() === email.toLowerCase()) ||
-               (appState.teachersList || []).find(t => t.email && t.email.toLowerCase() === email.toLowerCase());
-  if (!user) return;
-  const emailField = document.getElementById('login-email');
-  const passField = document.getElementById('login-password');
-  if (emailField) emailField.value = user.email;
-  if (passField) passField.value = user.password || '123BALASELVARAJA123';
-  handleLogin();
-}
-
-function renderQuickLoginButtons() {
-  const container = document.getElementById('quick-custom-accounts');
-  if (!container) return;
-
-  // Custom accounts added beyond the 3 default ones
-  const customUsers = (appState.users || []).filter(u => 
-    u.email !== 'canvaonly322@gmail.com' && 
-    u.email !== 'canvaonly322@gmil.com' &&
-    u.email !== 'hod.it@college.edu' && 
-    u.email !== 'arun@college.edu'
-  );
-
-  // Also include any newly added HODs from hodsList not yet in default
-  (appState.hodsList || []).forEach(h => {
-    if (h.email && h.email !== 'hod.it@college.edu' && !customUsers.some(u => u.email.toLowerCase() === h.email.toLowerCase())) {
-      customUsers.push({ name: h.name, email: h.email, role: 'hod' });
-    }
-  });
-
-  if (customUsers.length === 0) {
-    container.classList.add('hidden');
-    container.innerHTML = '';
+  if (!name || !email || !password) {
+    showToast('Admin Name, Email, and Password are required.', 'error');
     return;
   }
 
-  container.classList.remove('hidden');
-  container.innerHTML = `
-    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-      <span>👥</span>
-      <span>Newly Added Accounts (1-Tap Login):</span>
-    </div>
-    <div class="flex flex-wrap gap-1.5">
-      ${customUsers.map(u => {
-        const icon = u.role === 'hod' ? '👨‍🏫' : '📱';
-        const color = u.role === 'hod' 
-          ? 'bg-purple-100 hover:bg-purple-200 text-purple-900 border-purple-300' 
-          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300';
-        return `
-          <button type="button" onclick="loginAsSpecificUser('${u.email}')" class="px-2.5 py-1.5 ${color} border rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer">
-            <span>${icon}</span>
-            <span>${u.name} (${u.role.toUpperCase()})</span>
-          </button>
-        `;
-      }).join('')}
-    </div>
-  `;
+  if (password.length < 6) {
+    showToast('Password must be at least 6 characters long.', 'error');
+    return;
+  }
+
+  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
+    showToast('A user with this Email already exists.', 'error');
+    return;
+  }
+
+  const newAdmin = {
+    id: 'usr-admin-' + Date.now(),
+    name,
+    email,
+    password,
+    role: 'admin',
+    dept: roleType,
+    isOnline: false
+  };
+
+  appState.users = appState.users || [];
+  appState.users.push(newAdmin);
+
+  // Sync to Firebase Auth in cloud if available
+  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+    try {
+      await window.FirebaseAuth.registerWithEmail(email, password);
+      console.log('Firebase Auth registered new admin:', email);
+    } catch (err) {
+      console.warn('Firebase Auth registration notice:', err.message);
+    }
+  }
+
+  saveState();
+  closeModal('modal-add-admin');
+  showToast(`Administrator account for ${name} created successfully!`, 'success');
+  const form = document.getElementById('form-add-admin');
+  if (form) form.reset();
+}
+
+function renderQuickLoginButtons() {
+  // Quick 1-click login intentionally removed for security
+  const container = document.getElementById('quick-custom-accounts');
+  if (container) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+  }
 }
 
 async function handleLogin(e) {
@@ -2668,6 +2653,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('form-login');
   if (loginForm) {
     loginForm.addEventListener('submit', handleLogin);
+  }
+
+  // Event listener for Add Admin form
+  const adminForm = document.getElementById('form-add-admin');
+  if (adminForm) {
+    adminForm.addEventListener('submit', handleAddAdmin);
   }
 
   // Event listener for Add HOD form
