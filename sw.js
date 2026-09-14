@@ -1,11 +1,11 @@
-// MyMonitorXX Service Worker v7.0.0 (Cloud Firestore Real-Time Multi-Device Sync)
-const CACHE_NAME = "mymonitorxx-v7";
+// MyMonitorXX Service Worker v8.0.0 (Resilient Universal PWA Offline & Navigation)
+const CACHE_NAME = "mymonitorxx-v8";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./frontend/manifest.json",
+  "./manifest.json",
   "./frontend/icons/icon-192x192.png",
   "./frontend/icons/icon-512x512.png",
   "./frontend/js/api.js",
@@ -13,56 +13,74 @@ const STATIC_ASSETS = [
   "./frontend/js/geolocation.js"
 ];
 
-// Install: Skip waiting immediately to activate fresh worker
+// Install: Cache all core assets
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn("[SW] Cache addAll notice:", err);
+      });
+    })
+  );
 });
 
-// Activate: Purge all old caches (including mymonitorxx-v1) and claim clients immediately
+// Activate: Purge older caches and claim clients immediately
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => {
-          console.log("[ServiceWorker] Purging stale cache:", k);
-          return caches.delete(k);
-        })
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
       )
     )
   );
   self.clients.claim();
 });
 
-// Fetch: Network-First strategy (always get fresh HTML/JS from Vercel, fallback to cache if offline)
+// Fetch: Network-First with safe fallback to cached index.html for navigation
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Always pass API and WebSocket calls directly to network
+  // Skip APIs & WebSockets
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/ws/")) {
     return;
   }
 
-  // Network-First for HTML, JS, and CSS so mobile users always get newest code
+  // Handle HTML navigation requests (app launch, page refresh)
+  if (event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const match = await caches.match(event.request) ||
+                        await caches.match("./index.html") ||
+                        await caches.match("./") ||
+                        await caches.match("index.html");
+          if (match) return match;
+          return new Response("Campus Portal Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
+        })
+    );
+    return;
+  }
+
+  // Handle other assets (CSS, JS, images)
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         }
         return networkResponse;
       })
-      .catch(() => {
-        // Fallback to cache when offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          if (event.request.headers.get("accept")?.includes("text/html")) {
-            return caches.match("/index.html");
-          }
-        });
+      .catch(async () => {
+        return await caches.match(event.request);
       })
   );
 });
-
