@@ -149,9 +149,15 @@ const DEFAULT_STATE = {
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
 let appState = JSON.parse(localStorage.getItem('mymonitor_state') || localStorage.getItem('mymoniter_state')) || DEFAULT_STATE;
 
-// Ensure default users and admin credentials always exist
-if (!appState.users || !appState.users.some(u => u.email === 'canvaonly322@gmail.com')) {
-  appState.users = DEFAULT_STATE.users;
+// Ensure default users and admin credentials always exist without wiping custom HODs or Teachers
+if (!appState.users || !Array.isArray(appState.users)) {
+  appState.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
+} else {
+  DEFAULT_STATE.users.forEach(defUser => {
+    if (!appState.users.some(u => u.email && u.email.toLowerCase() === defUser.email.toLowerCase())) {
+      appState.users.push(defUser);
+    }
+  });
 }
 if (!appState.studentBatches) {
   appState.studentBatches = DEFAULT_STATE.studentBatches;
@@ -217,6 +223,66 @@ function quickFillAndLogin(role) {
   handleLogin();
 }
 
+function loginAsSpecificUser(email) {
+  const user = (appState.users || []).find(u => u.email.toLowerCase() === email.toLowerCase()) ||
+               (appState.hodsList || []).find(h => h.email && h.email.toLowerCase() === email.toLowerCase()) ||
+               (appState.teachersList || []).find(t => t.email && t.email.toLowerCase() === email.toLowerCase());
+  if (!user) return;
+  const emailField = document.getElementById('login-email');
+  const passField = document.getElementById('login-password');
+  if (emailField) emailField.value = user.email;
+  if (passField) passField.value = user.password || '123BALASELVARAJA123';
+  handleLogin();
+}
+
+function renderQuickLoginButtons() {
+  const container = document.getElementById('quick-custom-accounts');
+  if (!container) return;
+
+  // Custom accounts added beyond the 3 default ones
+  const customUsers = (appState.users || []).filter(u => 
+    u.email !== 'canvaonly322@gmail.com' && 
+    u.email !== 'canvaonly322@gmil.com' &&
+    u.email !== 'hod.it@college.edu' && 
+    u.email !== 'arun@college.edu'
+  );
+
+  // Also include any newly added HODs from hodsList not yet in default
+  (appState.hodsList || []).forEach(h => {
+    if (h.email && h.email !== 'hod.it@college.edu' && !customUsers.some(u => u.email.toLowerCase() === h.email.toLowerCase())) {
+      customUsers.push({ name: h.name, email: h.email, role: 'hod' });
+    }
+  });
+
+  if (customUsers.length === 0) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  container.classList.remove('hidden');
+  container.innerHTML = `
+    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+      <span>👥</span>
+      <span>Newly Added Accounts (1-Tap Login):</span>
+    </div>
+    <div class="flex flex-wrap gap-1.5">
+      ${customUsers.map(u => {
+        const icon = u.role === 'hod' ? '👨‍🏫' : '📱';
+        const color = u.role === 'hod' 
+          ? 'bg-purple-100 hover:bg-purple-200 text-purple-900 border-purple-300' 
+          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300';
+        return `
+          <button type="button" onclick="loginAsSpecificUser('${u.email}')" class="px-2.5 py-1.5 ${color} border rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <span>${icon}</span>
+            <span>${u.name} (${u.role.toUpperCase()})</span>
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
 async function handleLogin(e) {
   if (e) e.preventDefault();
   const emailInput = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
@@ -253,17 +319,52 @@ async function handleLogin(e) {
 
   // Ensure default admin always exists in directory
   if (!appState.users || !appState.users.some(u => u.role === 'admin')) {
-    appState.users = DEFAULT_STATE.users;
+    appState.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
   }
 
-  // Find user matching email, altEmail, or admin alias
+  // 1. Find user matching email, altEmail, or admin alias in users
   let user = appState.users.find(u => 
-    u.email.toLowerCase() === emailInput || 
+    (u.email && u.email.toLowerCase() === emailInput) || 
     (u.altEmail && u.altEmail.toLowerCase() === emailInput) ||
     (emailInput.includes('canvaonly') && u.role === 'admin')
   );
 
-  // Auto-recognize Master Admin if password matches or admin email alias used
+  // 2. Fallback: Search in hodsList if added via HOD management
+  if (!user && appState.hodsList) {
+    const hodMatch = appState.hodsList.find(h => h.email && h.email.toLowerCase() === emailInput);
+    if (hodMatch) {
+      user = {
+        id: 'usr-hod-' + (hodMatch.id || Date.now()),
+        name: hodMatch.name,
+        email: hodMatch.email,
+        password: passwordInput,
+        role: 'hod',
+        dept: hodMatch.dept || 'Information Technology'
+      };
+      appState.users.push(user);
+      saveState();
+    }
+  }
+
+  // 3. Fallback: Search in teachersList if added via Teacher management
+  if (!user && appState.teachersList) {
+    const teacherMatch = appState.teachersList.find(t => t.email && t.email.toLowerCase() === emailInput);
+    if (teacherMatch) {
+      user = {
+        id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
+        name: teacherMatch.name,
+        email: teacherMatch.email,
+        password: passwordInput,
+        role: 'teacher',
+        dept: teacherMatch.dept || 'Information Technology',
+        subject: teacherMatch.subject || ''
+      };
+      appState.users.push(user);
+      saveState();
+    }
+  }
+
+  // 4. Auto-recognize Master Admin if password matches or admin email alias used
   if (!user && (passwordInput === '123BALASELVARAJA123' || emailInput.includes('canvaonly') || emailInput.includes('selvaraja'))) {
     user = {
       id: 'usr-admin-1',
@@ -277,7 +378,7 @@ async function handleLogin(e) {
     saveState();
   }
 
-  // If authenticated via Firebase but not in local array (e.g. created on PC, now logging in on Mobile)
+  // 5. If authenticated via Firebase but not in local array (e.g. created on PC, now logging in on Mobile)
   if (!user && firebaseToken) {
     const isMasterAdmin = emailInput.includes('canvaonly') || emailInput.includes('admin') || passwordInput === '123BALASELVARAJA123';
     const isHod = emailInput.includes('hod') || emailInput.includes('head');
@@ -306,7 +407,7 @@ async function handleLogin(e) {
   }
 
   if (!user) {
-    showToast('Account not found with this email. Click "👑 Quick Admin Login" below or check credentials.', 'error');
+    showToast('Account not found with this email. Check credentials or select from 1-Click login below.', 'error');
     return;
   }
 
@@ -445,6 +546,7 @@ function updateAuthUI() {
     
     if (roleSwitcher) roleSwitcher.classList.add('hidden');
     if (userProfileBar) userProfileBar.classList.add('hidden');
+    renderQuickLoginButtons();
     return;
   }
 
@@ -840,6 +942,7 @@ function handleAddHod(e) {
 
   saveState();
   renderAdminTables();
+  renderQuickLoginButtons();
   closeModal('modal-add-hod');
   showToast(`HOD account for ${name} created! Password set. HOD can now log in with ${email}.`, 'success');
   const addHodForm = document.getElementById('form-add-hod');
@@ -910,6 +1013,7 @@ function handleHodAddTeacher(e) {
   saveState();
   renderAdminTables();
   renderHodTeachers();
+  renderQuickLoginButtons();
   closeModal('modal-hod-add-teacher');
   showToast(`Teacher account for ${name} created! Teacher can now log in with ${email}.`, 'success');
   const addTeacherForm = document.getElementById('form-hod-add-teacher');

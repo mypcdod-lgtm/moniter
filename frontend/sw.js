@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v5.0.0 (Cloud Auth sync across PC & Mobile)
-const CACHE_NAME = "mymonitorxx-v5";
+// MyMonitorXX Service Worker v6.0.0 (Cache-Busting & Dynamic 1-Tap HOD/Teacher Logins)
+const CACHE_NAME = "mymonitorxx-v6";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
