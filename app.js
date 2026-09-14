@@ -651,11 +651,22 @@ function switchAdminTab(tabId) {
 function toggleAdminDrawer(force) {
   const drawer = document.getElementById('admin-mobile-drawer');
   if (!drawer) return;
-  if (typeof force === 'boolean') {
-    if (force) drawer.classList.remove('drawer-closed');
-    else drawer.classList.add('drawer-closed');
+  const isClosed = drawer.style.display === 'none' || drawer.classList.contains('hidden') || drawer.classList.contains('drawer-closed');
+  const shouldOpen = typeof force === 'boolean' ? force : isClosed;
+  if (shouldOpen) {
+    drawer.style.display = 'block';
+    drawer.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      drawer.classList.remove('drawer-closed');
+    });
   } else {
-    drawer.classList.toggle('drawer-closed');
+    drawer.classList.add('drawer-closed');
+    setTimeout(() => {
+      if (drawer.classList.contains('drawer-closed')) {
+        drawer.style.display = 'none';
+        drawer.classList.add('hidden');
+      }
+    }, 280);
   }
 }
 
@@ -686,11 +697,22 @@ function switchHodTab(tabId) {
 function toggleHodDrawer(force) {
   const drawer = document.getElementById('hod-mobile-drawer');
   if (!drawer) return;
-  if (typeof force === 'boolean') {
-    if (force) drawer.classList.remove('drawer-closed');
-    else drawer.classList.add('drawer-closed');
+  const isClosed = drawer.style.display === 'none' || drawer.classList.contains('hidden') || drawer.classList.contains('drawer-closed');
+  const shouldOpen = typeof force === 'boolean' ? force : isClosed;
+  if (shouldOpen) {
+    drawer.style.display = 'block';
+    drawer.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      drawer.classList.remove('drawer-closed');
+    });
   } else {
-    drawer.classList.toggle('drawer-closed');
+    drawer.classList.add('drawer-closed');
+    setTimeout(() => {
+      if (drawer.classList.contains('drawer-closed')) {
+        drawer.style.display = 'none';
+        drawer.classList.add('hidden');
+      }
+    }, 280);
   }
 }
 
@@ -702,11 +724,22 @@ function closeHodDrawer() {
 function toggleTeacherDrawer(force) {
   const drawer = document.getElementById('teacher-mobile-drawer');
   if (!drawer) return;
-  if (typeof force === 'boolean') {
-    if (force) drawer.classList.remove('drawer-closed');
-    else drawer.classList.add('drawer-closed');
+  const isClosed = drawer.style.display === 'none' || drawer.classList.contains('hidden') || drawer.classList.contains('drawer-closed');
+  const shouldOpen = typeof force === 'boolean' ? force : isClosed;
+  if (shouldOpen) {
+    drawer.style.display = 'block';
+    drawer.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      drawer.classList.remove('drawer-closed');
+    });
   } else {
-    drawer.classList.toggle('drawer-closed');
+    drawer.classList.add('drawer-closed');
+    setTimeout(() => {
+      if (drawer.classList.contains('drawer-closed')) {
+        drawer.style.display = 'none';
+        drawer.classList.add('hidden');
+      }
+    }, 280);
   }
 }
 

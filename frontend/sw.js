@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v2.0.0 (Network-First for instant mobile updates)
-const CACHE_NAME = "mymonitorxx-v2";
+// MyMonitorXX Service Worker v4.0.0 (Network-First with zero-blocking drawers)
+const CACHE_NAME = "mymonitorxx-v4";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
