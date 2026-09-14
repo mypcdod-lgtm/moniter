@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.mypcdod_lgtm.folio",
+        "sha256_cert_fingerprints": ["93:E5:47:CE:9F:43:25:57:D0:10:0E:49:79:0E:7F:26:3C:83:70:4E:58:B5:B7:DC:E7:8B:5A:83:BC:09:A5:63"]
+      }
+    }]

@@ -58,10 +58,10 @@
       <div class="flex items-center gap-2 sm:gap-3">
 
 
-        <!-- PWA Install App Button -->
-        <button id="btn-install-pwa" onclick="installPWAApp()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-bold shadow-sm transition transform active:scale-95 cursor-pointer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          <span class="hidden sm:inline">Install App</span>
+        <!-- PWA / APK Install App Button -->
+        <button id="btn-install-pwa" onclick="openInstallModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition transform active:scale-95 cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden sm:inline">Install App / APK</span>
           <span class="sm:hidden">Install</span>
         </button>
 
@@ -167,8 +167,16 @@
             </button>
           </form>
 
+          <!-- Quick Mobile Install Banner -->
+          <div class="pt-2">
+            <button type="button" onclick="openInstallModal()" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              <span>Install FOLIO App or Download APK</span>
+            </button>
+          </div>
+
           <!-- Role Login Guide -->
-          <div class="pt-4 border-t border-slate-100 space-y-3">
+          <div class="pt-2 border-t border-slate-100 space-y-3">
             <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-2">
               <div class="flex items-center gap-1.5 font-bold text-slate-800">
                 <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -2428,64 +2436,135 @@
   <script src="frontend/js/geolocation.js?v=20260914_8"></script>
   <script src="app.js?v=20260914_8"></script>
 
-  <!-- Modal: Mobile PWA Installation Guide -->
-  <div id="modal-pwa-guide" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+  <!-- Modal: FOLIO App Install & APK Download -->
+  <div id="modal-folio-install" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 border border-slate-100 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <img src="frontend/icons/icon-192x192.png" alt="FOLIO" class="w-11 h-11 rounded-2xl object-contain border border-slate-200 bg-white p-1 shadow-xs">
+          <div>
+            <h3 class="font-black text-slate-900 text-base sm:text-lg tracking-tight">Install FOLIO</h3>
+            <p class="text-xs text-slate-500 font-medium">Campus Timetable & Faculty Portal</p>
           </div>
-          <h3 class="font-bold text-slate-800 text-base">Install Campus Portal</h3>
         </div>
-        <button onclick="closeModal('modal-pwa-guide')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        <button onclick="closeModal('modal-folio-install')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer text-sm font-bold">✕</button>
       </div>
 
-      <div class="space-y-3 text-sm text-slate-600">
-        <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-          <p class="font-bold text-indigo-900 flex items-center gap-1.5 mb-1">
-            <span>📱</span> Android (Google Chrome)
+      <!-- Option 1: 1-Tap Instant Install (PWA) -->
+      <div class="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-sm font-bold">⚡</span>
+            <div>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">Option 1: 1-Tap Instant Install</h4>
+              <p class="text-[11px] text-slate-500">Adds FOLIO to Home Screen & App Drawer</p>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Recommended</span>
+        </div>
+
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Installs directly into Android or iOS. Opens full-screen with no browser address bar, takes <strong>0 MB extra storage</strong>, and auto-updates whenever code changes.
+        </p>
+
+        <!-- PWA Progress Bar (Initially Hidden) -->
+        <div id="pwa-progress-box" class="hidden p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span id="pwa-progress-text">Preparing installation...</span>
+            <span id="pwa-progress-percent" class="font-mono text-indigo-600">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div id="pwa-progress-bar" class="bg-gradient-to-r from-emerald-500 to-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- PWA Success / Help Banner -->
+        <div id="pwa-guide-box" class="hidden p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs space-y-1.5 text-indigo-900">
+          <p class="font-bold flex items-center gap-1.5">
+            <span>📱</span> For Android & iPhone:
           </p>
-          <ol class="list-decimal list-inside space-y-1 text-xs text-indigo-800">
-            <li>Tap the <strong>three dots (⋮)</strong> menu in the top right.</li>
-            <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
-            <li>Tap <strong>Install</strong> to add it directly to your app drawer!</li>
+          <ul class="list-disc list-inside space-y-0.5 text-[11px] text-indigo-800">
+            <li><strong>Android (Chrome):</strong> Tap <strong>⋮ (3 dots)</strong> &rarr; <strong>Install app</strong>.</li>
+            <li><strong>iPhone (Safari):</strong> Tap <strong>Share [↑]</strong> &rarr; <strong>Add to Home Screen</strong>.</li>
+          </ul>
+        </div>
+
+        <button id="btn-pwa-start-install" onclick="startPWAInstall()" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition transform active:scale-98 flex items-center justify-center gap-2 shadow-sm cursor-pointer">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>⚡ Install App to Phone</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex items-center justify-center">
+        <div class="border-t border-slate-200 w-full"></div>
+        <span class="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest absolute">OR</span>
+      </div>
+
+      <!-- Option 2: Download Standalone Android APK -->
+      <div class="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center text-sm font-bold">📦</span>
+            <div>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">Option 2: Download Android APK</h4>
+              <p class="text-[11px] text-slate-500">Standalone installer file (1.3 MB)</p>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">Android</span>
+        </div>
+
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Download the physical <strong>FOLIO.apk</strong> file. You can keep it in your Downloads, or share it with faculty members via WhatsApp or Bluetooth.
+        </p>
+
+        <!-- APK Download Progress Bar (Initially Hidden) -->
+        <div id="apk-progress-box" class="hidden p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span id="apk-progress-text">Connecting to download server...</span>
+            <span id="apk-progress-percent" class="font-mono text-emerald-600">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div id="apk-progress-bar" class="bg-gradient-to-r from-indigo-600 to-emerald-500 h-2.5 rounded-full transition-all duration-200 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- APK Instructions -->
+        <div id="apk-guide-box" class="hidden p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs space-y-1 text-emerald-900">
+          <p class="font-bold flex items-center gap-1.5">
+            <span>✅</span> Download Started! Next steps:
+          </p>
+          <ol class="list-decimal list-inside space-y-0.5 text-[11px] text-emerald-800">
+            <li>When the download completes, tap <strong>Open</strong> in notification.</li>
+            <li>If Android asks, allow <em>"Install unknown apps"</em>.</li>
+            <li>Tap <strong>Install</strong> &rarr; Enjoy FOLIO!</li>
           </ol>
         </div>
 
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-          <p class="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-            <span>🍎</span> iPhone / iPad (Safari)
-          </p>
-          <ol class="list-decimal list-inside space-y-1 text-xs text-slate-700">
-            <li>Tap the <strong>Share button</strong> (square with arrow ↑) at the bottom.</li>
-            <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
-            <li>Tap <strong>Add</strong> in the top right.</li>
-          </ol>
-        </div>
+        <button id="btn-start-apk-download" onclick="startApkDownload()" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition transform active:scale-98 flex items-center justify-center gap-2 shadow-sm cursor-pointer">
+          <svg class="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>⬇ Download FOLIO.apk (1.3 MB)</span>
+        </button>
       </div>
 
-      <button onclick="closeModal('modal-pwa-guide')" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition cursor-pointer">
-        Got it, thanks!
-      </button>
     </div>
   </div>
 
-  <!-- PWA Service Worker Registration & Install Prompt Handler -->
+  <!-- PWA Service Worker Registration & Modern Install Engine -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Register root sw.js for maximum global scope coverage
         navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
-            console.log('✅ Root ServiceWorker registered with scope:', reg.scope);
+            console.log('✅ FOLIO ServiceWorker registered with scope:', reg.scope);
             reg.update();
           })
           .catch(() => {
-            // Fallback to frontend/sw.js
             navigator.serviceWorker.register('frontend/sw.js')
               .then((reg) => console.log('✅ Subfolder ServiceWorker registered with scope:', reg.scope))
-              .catch((err) => console.warn('⚠️ ServiceWorker registration failed:', err));
+              .catch((err) => console.warn('⚠️ ServiceWorker registration notice:', err));
           });
       });
     }
@@ -2500,34 +2579,117 @@
       }
     });
 
+    // Alias legacy calls
     function installPWAApp() {
-      // Check if already running in standalone/installed mode
+      openInstallModal();
+    }
+
+    function openInstallModal() {
+      const modal = document.getElementById('modal-folio-install');
+      if (modal) {
+        modal.classList.remove('hidden');
+      }
+    }
+
+    // 1-Tap PWA Install with Progress Bar
+    function startPWAInstall() {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       if (isStandalone) {
-        if (typeof showToast === 'function') showToast('App is already installed and running on your device!', 'info');
+        if (typeof showToast === 'function') showToast('FOLIO is already installed and running as an app!', 'info');
         return;
       }
 
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the PWA install prompt');
-            if (typeof showToast === 'function') showToast('App installation started!', 'success');
-          }
-          deferredPrompt = null;
-        });
-      } else {
-        // On mobile browsers where prompt is not pre-cached, open the visual install guide modal
-        const modal = document.getElementById('modal-pwa-guide');
-        if (modal) {
-          modal.classList.remove('hidden');
-        } else if (typeof showToast === 'function') {
-          showToast('To install: Tap your browser menu (⋮ or Share) and select "Install app".', 'info');
+      const progressBox = document.getElementById('pwa-progress-box');
+      const progressBar = document.getElementById('pwa-progress-bar');
+      const progressText = document.getElementById('pwa-progress-text');
+      const progressPercent = document.getElementById('pwa-progress-percent');
+      const guideBox = document.getElementById('pwa-guide-box');
+      const actionBtn = document.getElementById('btn-pwa-start-install');
+
+      if (progressBox) progressBox.classList.remove('hidden');
+      if (actionBtn) actionBtn.disabled = true;
+
+      // Animate progress
+      let currentProgress = 0;
+      const interval = setInterval(() => {
+        currentProgress += 20;
+        if (currentProgress > 100) currentProgress = 100;
+
+        if (progressBar) progressBar.style.width = currentProgress + '%';
+        if (progressPercent) progressPercent.innerText = currentProgress + '%';
+
+        if (currentProgress <= 40) {
+          if (progressText) progressText.innerText = 'Checking device compatibility...';
+        } else if (currentProgress <= 80) {
+          if (progressText) progressText.innerText = 'Caching offline portal assets...';
         } else {
-          alert('To install: Tap your browser menu (⋮ or Share) and select "Install app".');
+          if (progressText) progressText.innerText = 'Launching system installer...';
         }
-      }
+
+        if (currentProgress >= 100) {
+          clearInterval(interval);
+
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+              if (choiceResult.outcome === 'accepted') {
+                if (typeof showToast === 'function') showToast('FOLIO installed successfully! Check your app drawer.', 'success');
+                closeModal('modal-folio-install');
+              }
+              deferredPrompt = null;
+              if (actionBtn) actionBtn.disabled = false;
+            });
+          } else {
+            // Show manual guide if browser didn't supply deferredPrompt
+            if (guideBox) guideBox.classList.remove('hidden');
+            if (progressText) progressText.innerText = 'Follow the steps below to finish:';
+            if (actionBtn) actionBtn.disabled = false;
+          }
+        }
+      }, 250);
+    }
+
+    // Direct APK Download with Progress Bar
+    function startApkDownload() {
+      const progressBox = document.getElementById('apk-progress-box');
+      const progressBar = document.getElementById('apk-progress-bar');
+      const progressText = document.getElementById('apk-progress-text');
+      const progressPercent = document.getElementById('apk-progress-percent');
+      const guideBox = document.getElementById('apk-guide-box');
+      const actionBtn = document.getElementById('btn-start-apk-download');
+
+      if (progressBox) progressBox.classList.remove('hidden');
+      if (actionBtn) actionBtn.disabled = true;
+
+      let current = 0;
+      const step = 15;
+      const timer = setInterval(() => {
+        current += step;
+        if (current > 100) current = 100;
+
+        if (progressBar) progressBar.style.width = current + '%';
+        if (progressPercent) progressPercent.innerText = current + '%';
+
+        const loadedMb = ((current / 100) * 1.3).toFixed(1);
+        if (progressText) progressText.innerText = `Downloading FOLIO.apk (${loadedMb} MB / 1.3 MB)...`;
+
+        if (current >= 100) {
+          clearInterval(timer);
+          if (progressText) progressText.innerText = 'Download ready! Starting file save...';
+
+          // Trigger real download of FOLIO.apk
+          const link = document.createElement('a');
+          link.href = 'downloads/FOLIO.apk';
+          link.download = 'FOLIO.apk';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          if (guideBox) guideBox.classList.remove('hidden');
+          if (typeof showToast === 'function') showToast('FOLIO.apk download started! Tap Open when finished.', 'success');
+          if (actionBtn) actionBtn.disabled = false;
+        }
+      }, 150);
     }
   </script>
 </body>
