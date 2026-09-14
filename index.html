@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MyMonitorXX- Campus Timetable & Live Monitoring Portal</title>
   <!-- PWA Meta & Manifest -->
-  <link rel="manifest" href="frontend/manifest.json">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2437,16 +2437,65 @@
   <script src="frontend/js/geolocation.js?v=20260914_7"></script>
   <script src="app.js?v=20260914_7"></script>
 
+  <!-- Modal: Mobile PWA Installation Guide -->
+  <div id="modal-pwa-guide" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <h3 class="font-bold text-slate-800 text-base">Install Campus Portal</h3>
+        </div>
+        <button onclick="closeModal('modal-pwa-guide')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3 text-sm text-slate-600">
+        <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+          <p class="font-bold text-indigo-900 flex items-center gap-1.5 mb-1">
+            <span>📱</span> Android (Google Chrome)
+          </p>
+          <ol class="list-decimal list-inside space-y-1 text-xs text-indigo-800">
+            <li>Tap the <strong>three dots (⋮)</strong> menu in the top right.</li>
+            <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+            <li>Tap <strong>Install</strong> to add it directly to your app drawer!</li>
+          </ol>
+        </div>
+
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+          <p class="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
+            <span>🍎</span> iPhone / iPad (Safari)
+          </p>
+          <ol class="list-decimal list-inside space-y-1 text-xs text-slate-700">
+            <li>Tap the <strong>Share button</strong> (square with arrow ↑) at the bottom.</li>
+            <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+            <li>Tap <strong>Add</strong> in the top right.</li>
+          </ol>
+        </div>
+      </div>
+
+      <button onclick="closeModal('modal-pwa-guide')" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition cursor-pointer">
+        Got it, thanks!
+      </button>
+    </div>
+  </div>
+
   <!-- PWA Service Worker Registration & Install Prompt Handler -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('frontend/sw.js')
+        // Register root sw.js for maximum global scope coverage
+        navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
-            console.log('✅ ServiceWorker registered with scope:', reg.scope);
+            console.log('✅ Root ServiceWorker registered with scope:', reg.scope);
             reg.update();
           })
-          .catch((err) => console.warn('⚠️ ServiceWorker registration failed:', err));
+          .catch(() => {
+            // Fallback to frontend/sw.js
+            navigator.serviceWorker.register('frontend/sw.js')
+              .then((reg) => console.log('✅ Subfolder ServiceWorker registered with scope:', reg.scope))
+              .catch((err) => console.warn('⚠️ ServiceWorker registration failed:', err));
+          });
       });
     }
 
@@ -2461,6 +2510,13 @@
     });
 
     function installPWAApp() {
+      // Check if already running in standalone/installed mode
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) {
+        if (typeof showToast === 'function') showToast('App is already installed and running on your device!', 'info');
+        return;
+      }
+
       if (deferredPrompt) {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
@@ -2471,10 +2527,14 @@
           deferredPrompt = null;
         });
       } else {
-        if (typeof showToast === 'function') {
-          showToast('To install: Tap your browser menu (⋮ or Share) and select "Install App" or "Add to Home Screen".', 'info');
+        // On mobile browsers where prompt is not pre-cached, open the visual install guide modal
+        const modal = document.getElementById('modal-pwa-guide');
+        if (modal) {
+          modal.classList.remove('hidden');
+        } else if (typeof showToast === 'function') {
+          showToast('To install: Tap your browser menu (⋮ or Share) and select "Install app".', 'info');
         } else {
-          alert('To install: Tap your browser menu (⋮ or Share) and select "Install App" or "Add to Home Screen".');
+          alert('To install: Tap your browser menu (⋮ or Share) and select "Install app".');
         }
       }
     }
