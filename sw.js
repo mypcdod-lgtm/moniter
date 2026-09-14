@@ -1,5 +1,5 @@
-// FOLIO Service Worker v17.0.0 (Dynamic Real-Time HOD Monitoring & Bell Schedule)
-const CACHE_NAME = "folio-v17";
+// FOLIO Service Worker v18.0.0 (Dynamic HOD Vacancy & Substitute Tabs)
+const CACHE_NAME = "folio-v18";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

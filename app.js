@@ -826,6 +826,13 @@ function switchHodTab(tabId) {
     activeLink.classList.remove('text-slate-600');
   });
 
+  if (tabId === 'vacant-classes') renderHodVacantClasses();
+  if (tabId === 'substitute-management') renderHodSubstituteManagement();
+  if (tabId === 'todays-timetable') renderHodTodayTimetable();
+  if (tabId === 'dashboard') renderHodDashboard();
+  if (tabId === 'teachers') renderHodTeachers();
+  if (tabId === 'leaves') renderHodLeaves();
+
   closeHodDrawer();
 }
 
@@ -1423,6 +1430,367 @@ function renderHodDashboard() {
       <td class="py-3.5 px-4 text-right">${actionBtn}</td>
     `;
     tbody.appendChild(tr);
+  });
+
+  // Keep HOD sub-views in sync
+  renderHodVacantClasses();
+  renderHodSubstituteManagement();
+  renderHodTodayTimetable();
+}
+
+// Render dynamic HOD Vacant Classes tab
+function renderHodVacantClasses() {
+  const container = document.getElementById('hod-vacant-classes-list');
+  const drawerBadge = document.getElementById('hod-drawer-vacant-badge');
+  const sidebarBadge = document.getElementById('hod-sidebar-vacant-badge');
+  const headerBadge = document.getElementById('hod-vacant-count-header-badge');
+  const metaEl = document.getElementById('hod-vacant-classes-meta');
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isAfterHours = currentMinutes >= 960; // 4:00 PM
+  const isBeforeHours = currentMinutes < 540; // 9:00 AM
+
+  const allTodayClasses = getHodTodayDepartmentClasses();
+
+  // Real-time vacant classes (faculty on leave and no substitute assigned)
+  let vacantClasses = [];
+  if (!isWeekend && !isAfterHours) {
+    if (isBeforeHours) {
+      vacantClasses = allTodayClasses.filter(c => c.isVacantPendingLeave);
+    } else {
+      vacantClasses = allTodayClasses.filter(c => (c.status === 'VACANT' || c.isVacantPendingLeave) && currentMinutes < c.endMin);
+    }
+  }
+
+  const vacantCount = vacantClasses.length;
+
+  const updateBadge = (el) => {
+    if (!el) return;
+    if (isWeekend) {
+      el.textContent = 'Weekend';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500';
+    } else if (isAfterHours) {
+      el.textContent = '0 Vacant';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500';
+    } else if (vacantCount > 0) {
+      el.textContent = `🔴 ${vacantCount} Vacant`;
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 animate-pulse';
+    } else {
+      el.textContent = '0 Vacant';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700';
+    }
+  };
+
+  updateBadge(drawerBadge);
+  updateBadge(sidebarBadge);
+
+  if (headerBadge) {
+    if (isWeekend) headerBadge.textContent = 'Campus Closed';
+    else if (isAfterHours) headerBadge.textContent = '0 Vacant (Concluded)';
+    else headerBadge.textContent = `${vacantCount} Vacant`;
+  }
+
+  if (metaEl) {
+    if (isWeekend) metaEl.textContent = 'Weekend schedule • Timetable resumes Monday morning';
+    else if (isAfterHours) metaEl.textContent = 'College hours concluded at 04:00 PM • All department periods completed';
+    else metaEl.textContent = 'Real-time faculty absence and unstaffed classroom monitoring';
+  }
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (isWeekend) {
+    container.innerHTML = `
+      <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xl font-bold mx-auto">📅</div>
+        <h4 class="font-bold text-slate-900 text-base">Campus Closed (Weekend)</h4>
+        <p class="text-xs text-slate-500 max-w-md mx-auto">No regular classes scheduled today. Vacancy tracking reactivates on Monday at 09:00 AM.</p>
+      </div>`;
+    return;
+  }
+
+  if (isAfterHours) {
+    container.innerHTML = `
+      <div class="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold mx-auto">✓</div>
+        <h4 class="font-bold text-slate-900 text-base">College Hours Concluded for Today (04:00 PM)</h4>
+        <p class="text-xs text-slate-600 max-w-md mx-auto">All ${allTodayClasses.length} assigned periods for today have finished. No classroom is currently in session or vacant.</p>
+        <div class="pt-2">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200 shadow-2xs">
+            <span>🕒</span> Sessions Resume Tomorrow at 09:00 AM
+          </span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (vacantClasses.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold mx-auto">✓</div>
+        <h4 class="font-bold text-slate-900 text-base">All Classes Fully Staffed</h4>
+        <p class="text-xs text-slate-600 max-w-md mx-auto">All active and upcoming periods currently have assigned teachers in attendance. No unstaffed classrooms detected.</p>
+      </div>`;
+    return;
+  }
+
+  // Render active vacant classes
+  vacantClasses.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'p-4 rounded-xl border border-rose-200 bg-rose-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs';
+    card.innerHTML = `
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">VACANT</span>
+          <span class="font-mono text-xs font-bold text-slate-700">${item.time} (${item.periodName})</span>
+        </div>
+        <h4 class="font-bold text-slate-900 text-base mt-1">${item.class} • ${item.subject} (${item.room})</h4>
+        <p class="text-xs text-slate-600">Primary Faculty: <strong>${item.teacher}</strong> (Leave Pending / Unassigned)</p>
+      </div>
+      <button onclick="openSubstituteModal(${item.id})" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+        <span>Assign Substitute</span>
+      </button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// Render dynamic HOD Substitute Management tab
+function renderHodSubstituteManagement() {
+  const container = document.getElementById('hod-substitutes-list');
+  const drawerBadge = document.getElementById('hod-drawer-substitute-badge');
+  const sidebarBadge = document.getElementById('hod-sidebar-substitute-badge');
+  const headerBadge = document.getElementById('hod-substitute-count-header-badge');
+  const metaEl = document.getElementById('hod-substitute-meta');
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isAfterHours = currentMinutes >= 960; // 4:00 PM
+
+  const allTodayClasses = getHodTodayDepartmentClasses();
+
+  // Find all substitute classes today (from timetable slots and approved leaves)
+  const substituteClasses = allTodayClasses.filter(c => c.substituteTeacher || c.isLeaveApproved);
+
+  // Active substitutions in progress right now
+  let activeSubsCount = 0;
+  if (!isWeekend && !isAfterHours) {
+    activeSubsCount = substituteClasses.filter(c => currentMinutes >= c.startMin && currentMinutes < c.endMin).length;
+  }
+
+  const updateBadge = (el) => {
+    if (!el) return;
+    if (isWeekend) {
+      el.textContent = 'Weekend';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500';
+    } else if (isAfterHours) {
+      el.textContent = '0 Active';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500';
+    } else if (activeSubsCount > 0) {
+      el.textContent = `🟡 ${activeSubsCount} Active`;
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse';
+    } else {
+      el.textContent = '0 Active';
+      el.className = 'px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500';
+    }
+  };
+
+  updateBadge(drawerBadge);
+  updateBadge(sidebarBadge);
+
+  if (headerBadge) {
+    if (isWeekend) headerBadge.textContent = 'Campus Closed';
+    else if (isAfterHours) headerBadge.textContent = '0 Active (Concluded)';
+    else headerBadge.textContent = `${activeSubsCount} Active`;
+  }
+
+  if (metaEl) {
+    if (isWeekend) metaEl.textContent = 'Weekend schedule • Timetable resumes Monday';
+    else if (isAfterHours) metaEl.textContent = 'College hours ended at 04:00 PM • Substitution records for today';
+    else metaEl.textContent = 'Real-time substitute faculty ledger and teaching continuity tracker';
+  }
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (isWeekend) {
+    container.innerHTML = `
+      <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xl font-bold mx-auto">📅</div>
+        <h4 class="font-bold text-slate-900 text-base">Weekend • Campus Closed</h4>
+        <p class="text-xs text-slate-500 max-w-md mx-auto">No substitution duties scheduled on weekends.</p>
+      </div>`;
+    return;
+  }
+
+  if (isAfterHours) {
+    if (substituteClasses.length === 0) {
+      container.innerHTML = `
+        <div class="p-6 rounded-2xl border border-slate-200 bg-slate-50 text-center space-y-2">
+          <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xl font-bold mx-auto">📋</div>
+          <h4 class="font-bold text-slate-900 text-base">College Hours Concluded (04:00 PM)</h4>
+          <p class="text-xs text-slate-500 max-w-md mx-auto">No substitutions were required today. Primary faculty conducted all scheduled periods.</p>
+        </div>`;
+      return;
+    }
+
+    const headerNotice = document.createElement('div');
+    headerNotice.className = 'p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between mb-3';
+    headerNotice.innerHTML = `
+      <span class="font-bold text-slate-800">Today's Completed Substitutions (${substituteClasses.length})</span>
+      <span class="text-slate-400">Day Ended at 04:00 PM</span>
+    `;
+    container.appendChild(headerNotice);
+
+    substituteClasses.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'p-4 rounded-xl border border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs';
+      card.innerHTML = `
+        <div>
+          <span class="font-bold text-slate-900 text-sm">${item.class} • ${item.subject} (${item.room})</span>
+          <p class="text-slate-600 text-xs mt-0.5">Original: <strong>${item.teacher}</strong> | Substitute: <strong class="text-amber-800">${item.substituteTeacher || 'Assigned Faculty'}</strong></p>
+          <div class="text-[11px] font-mono text-slate-400 mt-1">${item.time} (${item.periodName})</div>
+        </div>
+        <span class="px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-600 text-xs border border-slate-200 shrink-0">✓ CONCLUDED</span>
+      `;
+      container.appendChild(card);
+    });
+    return;
+  }
+
+  if (substituteClasses.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold mx-auto">✓</div>
+        <h4 class="font-bold text-slate-900 text-base">No Substitutions Active</h4>
+        <p class="text-xs text-slate-600 max-w-md mx-auto">All classes are currently being handled by their assigned primary teachers. No substitute staff needed.</p>
+      </div>`;
+    return;
+  }
+
+  // During operating hours, render each substitution with status
+  substituteClasses.forEach(item => {
+    let pill = '';
+    if (currentMinutes >= item.startMin && currentMinutes < item.endMin) {
+      pill = '<span class="px-2.5 py-1 rounded-full font-bold bg-amber-500 text-white text-xs animate-pulse">🟡 IN SESSION NOW</span>';
+    } else if (currentMinutes < item.startMin) {
+      pill = `<span class="px-2.5 py-1 rounded-full font-bold bg-indigo-100 text-indigo-700 text-xs border border-indigo-200">⚪ UPCOMING (${item.time.split('-')[0].trim()})</span>`;
+    } else {
+      pill = '<span class="px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-600 text-xs border border-slate-200">✓ COMPLETED</span>';
+    }
+
+    const card = document.createElement('div');
+    card.className = 'p-4 rounded-xl border border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs';
+    card.innerHTML = `
+      <div>
+        <span class="font-bold text-amber-950 text-sm">${item.class} • ${item.subject} (${item.room})</span>
+        <p class="text-slate-700 text-xs mt-0.5">Original: <strong>${item.teacher}</strong> | Substitute: <strong class="text-amber-900">${item.substituteTeacher || 'Assigned Faculty'}</strong></p>
+        <div class="text-[11px] font-mono text-slate-500 mt-1">${item.time} (${item.periodName})</div>
+      </div>
+      <div class="shrink-0">${pill}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// Render dynamic HOD Today's Timetable tab
+function renderHodTodayTimetable() {
+  const container = document.getElementById('hod-today-timetable-container');
+  const metaEl = document.getElementById('hod-today-timetable-meta');
+  const pillEl = document.getElementById('hod-today-timetable-status-pill');
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isAfterHours = currentMinutes >= 960; // 4:00 PM
+
+  const bellSchedule = appState.collegeBellSchedule || [
+    { period: 1, name: 'Period 1', time: '09:00 - 09:50', start: '09:00', end: '09:50', startMin: 540, endMin: 590 },
+    { period: 2, name: 'Period 2', time: '09:50 - 10:40', start: '09:50', end: '10:40', startMin: 590, endMin: 640 },
+    { break: true, name: 'Morning Break', time: '10:40 - 11:00', startMin: 640, endMin: 660 },
+    { period: 3, name: 'Period 3', time: '11:00 - 11:50', start: '11:00', end: '11:50', startMin: 660, endMin: 710 },
+    { period: 4, name: 'Period 4', time: '11:50 - 12:40', start: '11:50', end: '12:40', startMin: 710, endMin: 760 },
+    { break: true, name: 'Lunch Break', time: '12:40 - 01:30', startMin: 760, endMin: 810 },
+    { period: 5, name: 'Period 5', time: '01:30 - 02:20', start: '01:30', end: '02:20', startMin: 810, endMin: 860 },
+    { period: 6, name: 'Period 6', time: '02:20 - 03:10', start: '02:20', end: '03:10', startMin: 860, endMin: 910 },
+    { period: 7, name: 'Period 7', time: '03:10 - 04:00', start: '03:10', end: '04:00', startMin: 910, endMin: 960 }
+  ];
+
+  const allTodayClasses = getHodTodayDepartmentClasses();
+
+  if (metaEl) {
+    if (isWeekend) metaEl.textContent = 'Weekend preview • Regular timetable resumes Monday';
+    else if (isAfterHours) metaEl.textContent = `All ${allTodayClasses.length} periods concluded today (09:00 AM - 04:00 PM)`;
+    else metaEl.textContent = `Live timetable schedule across IT Department batches (${allTodayClasses.length} periods)`;
+  }
+
+  if (pillEl) {
+    if (isWeekend) {
+      pillEl.textContent = 'Campus Closed (Weekend)';
+      pillEl.className = 'px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl border border-slate-200';
+    } else if (isAfterHours) {
+      pillEl.textContent = '✓ College Hours Concluded';
+      pillEl.className = 'px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300';
+    } else {
+      pillEl.textContent = '🟢 Operating Live';
+      pillEl.className = 'px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl border border-indigo-200';
+    }
+  }
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  bellSchedule.forEach(slot => {
+    if (slot.break) {
+      const isCurrentBreak = !isWeekend && currentMinutes >= slot.startMin && currentMinutes < slot.endMin;
+      const isPastBreak = isAfterHours || (!isWeekend && currentMinutes >= slot.endMin);
+      const bDiv = document.createElement('div');
+      bDiv.className = `p-3 rounded-xl flex items-center justify-between text-xs border ${isCurrentBreak ? 'bg-amber-50 border-amber-300 shadow-2xs font-bold text-amber-900' : 'bg-slate-50/60 border-slate-100 text-slate-500'}`;
+      bDiv.innerHTML = `
+        <span class="flex items-center gap-2">
+          <span>☕</span>
+          <span>${slot.name} (${slot.time})</span>
+        </span>
+        <span class="font-medium">${isCurrentBreak ? '🟡 BREAK IN PROGRESS' : (isPastBreak ? '✓ Concluded' : 'Scheduled')}</span>
+      `;
+      container.appendChild(bDiv);
+      return;
+    }
+
+    const slotClasses = allTodayClasses.filter(c => c.period === slot.period);
+    const isCurrentSlot = !isWeekend && currentMinutes >= slot.startMin && currentMinutes < slot.endMin;
+    const isPastSlot = isAfterHours || (!isWeekend && currentMinutes >= slot.endMin);
+
+    let statusPill = '';
+    if (isAfterHours || isPastSlot) {
+      statusPill = '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">✓ Concluded</span>';
+    } else if (isCurrentSlot) {
+      statusPill = '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">🟢 In Session</span>';
+    } else {
+      statusPill = '<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">Scheduled</span>';
+    }
+
+    const classSummaries = slotClasses.map(c => `${c.class}: ${c.subject} (${c.teacher} • ${c.room})`).join(' • ') || 'No classes assigned';
+
+    const div = document.createElement('div');
+    div.className = `p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition ${isCurrentSlot ? 'bg-indigo-50/50 border-indigo-200 shadow-2xs' : 'bg-white border-slate-100 hover:bg-slate-50/60'}`;
+    div.innerHTML = `
+      <div class="space-y-0.5">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-slate-900">${slot.name} (${slot.time})</span>
+        </div>
+        <p class="text-slate-600">${classSummaries}</p>
+      </div>
+      <div class="shrink-0">${statusPill}</div>
+    `;
+    container.appendChild(div);
   });
 }
 

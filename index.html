@@ -1070,11 +1070,14 @@
                     <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <span>Vacant Classes</span>
                   </span>
-                  <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">5 Vacant</span>
+                  <span id="hod-drawer-vacant-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Vacant</span>
                 </a>
-                <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-drawer-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
-                  <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                  <span>Substitute Management</span>
+                <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+                  <span class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    <span>Substitute Management</span>
+                  </span>
+                  <span id="hod-drawer-substitute-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Active</span>
                 </a>
                 <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
                   <span class="flex items-center gap-3">
@@ -1171,11 +1174,14 @@
                 <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <span>Vacant Classes</span>
               </span>
-              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">5 Vacant</span>
+              <span id="hod-sidebar-vacant-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Vacant</span>
             </a>
-            <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-sidebar-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
-              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-              <span>Substitute Management</span>
+            <a href="javascript:void(0)" onclick="switchHodTab('substitute-management')" data-hod-tab="substitute-management" class="hod-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+              <span class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                <span>Substitute Management</span>
+              </span>
+              <span id="hod-sidebar-substitute-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Active</span>
             </a>
             <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
               <span class="flex items-center gap-3">
@@ -1335,59 +1341,46 @@
           <!-- Other HOD tabs -->
           <div id="hod-tab-todays-timetable" class="hod-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-2">Today's Schedule: IT Department</h3>
-              <p class="text-xs text-slate-500 mb-4">48 periods across 4 batches (IT-A, IT-B, IT-C, IT-D)</p>
-              <div class="space-y-2">
-                <div class="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
-                  <span class="font-bold text-slate-800">10:00 - 11:00 AM Slot</span>
-                  <span class="text-slate-500">4 Classes Running • 1 Vacant (IT-C) • 1 Substitute (IT-D)</span>
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Today's Schedule: IT Department</h3>
+                  <p id="hod-today-timetable-meta" class="text-xs text-slate-500">Scheduled periods across department batches</p>
                 </div>
-                <div class="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
-                  <span class="font-bold text-slate-800">11:00 - 12:00 PM Slot</span>
-                  <span class="text-slate-500">4 Classes Scheduled</span>
-                </div>
+                <span id="hod-today-timetable-status-pill" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">Loading...</span>
               </div>
+              <div id="hod-today-timetable-container" class="space-y-2"></div>
             </div>
           </div>
 
           <div id="hod-tab-vacant-classes" class="hod-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <div class="flex justify-between items-center mb-4">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <div>
                   <h3 class="font-bold text-rose-700 text-base flex items-center gap-2">
                     <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <span>Unattended / Vacant Classes Today</span>
                   </h3>
-                  <p class="text-xs text-slate-500">Teachers on leave or delayed check-ins</p>
+                  <p id="hod-vacant-classes-meta" class="text-xs text-slate-500">Real-time faculty vacancy and unstaffed classroom tracker</p>
                 </div>
+                <span id="hod-vacant-count-header-badge" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">0 Vacant</span>
               </div>
-
-              <div class="space-y-3">
-                <div class="p-4 rounded-xl border border-rose-200 bg-rose-50/60 flex items-center justify-between">
-                  <div>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">VACANT NOW</span>
-                    <h4 class="font-bold text-slate-900 text-sm mt-1">IT-C • Discrete Maths (Room C206)</h4>
-                    <p class="text-xs text-slate-600">Primary Faculty: Priya Sharma (On Casual Leave)</p>
-                  </div>
-                  <button onclick="openSubstituteModal(3)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
-                    Assign Substitute
-                  </button>
-                </div>
-              </div>
+              <div id="hod-vacant-classes-list" class="space-y-3"></div>
             </div>
           </div>
 
           <div id="hod-tab-substitute-management" class="hod-tab-pane hidden space-y-4">
             <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-              <h3 class="font-bold text-slate-900 text-base mb-2">Substitute Teacher Ledger</h3>
-              <p class="text-xs text-slate-500 mb-4">Historical and active substitution records</p>
-              <div class="p-4 rounded-xl border border-amber-200 bg-amber-50/60 flex justify-between items-center text-xs">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <div>
-                  <span class="font-bold text-amber-900 text-sm">IT-D • Java (Room C207)</span>
-                  <p class="text-slate-600 mt-0.5">Original: Suresh | Substitute: <strong>Dr. Rajesh</strong></p>
+                  <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                    <span>Substitute Teacher Ledger</span>
+                  </h3>
+                  <p id="hod-substitute-meta" class="text-xs text-slate-500">Live and concluded teacher substitution records for today</p>
                 </div>
-                <span class="px-2.5 py-1 rounded-full font-bold bg-amber-500 text-white text-xs">ACTIVE SUBSTITUTE</span>
+                <span id="hod-substitute-count-header-badge" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">0 Active</span>
               </div>
+              <div id="hod-substitutes-list" class="space-y-3"></div>
             </div>
           </div>
 
