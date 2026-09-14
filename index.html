@@ -1502,6 +1502,13 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                   <span>Attendance History</span>
                 </a>
+                <a href="javascript:void(0)" onclick="switchTeacherTab('leaves')" data-teacher-tab="leaves" class="teacher-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+                  <span class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>My Leave Status</span>
+                  </span>
+                  <span id="teacher-drawer-leaves-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600">0</span>
+                </a>
                 <a href="javascript:void(0)" onclick="closeTeacherDrawer(); openModal('modal-teacher-leave')" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold transition mt-2 border border-rose-200">
                   <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   <span>📝 Request Leave</span>
@@ -1597,6 +1604,13 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span>Attendance Logs</span>
             </a>
+            <a href="javascript:void(0)" onclick="switchTeacherTab('leaves')" data-teacher-tab="leaves" class="teacher-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+              <span class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span>My Leave Status</span>
+              </span>
+              <span id="teacher-sidebar-leaves-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600">0</span>
+            </a>
             <a href="javascript:void(0)" onclick="openModal('modal-teacher-leave')" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold transition mt-2 border border-rose-200 cursor-pointer">
               <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               <span>Request Leave</span>
@@ -1615,6 +1629,21 @@
 
               <!-- Left Column: NEXT CLASS Focal Card & Workload Metrics (lg:col-span-7) -->
               <div class="lg:col-span-7 space-y-6">
+
+                <!-- TEACHER LEAVE STATUS NOTIFICATION & APPROVAL CARD -->
+                <div id="teacher-leave-status-card" class="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-3 hidden">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div class="flex items-center gap-2">
+                      <span class="text-base">📝</span>
+                      <h3 class="font-black text-xs uppercase tracking-wider text-slate-900">MY LEAVE REQUEST & HOD STATUS</h3>
+                    </div>
+                    <button onclick="openModal('modal-teacher-leave')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer">
+                      <span>+ New Request</span>
+                    </button>
+                  </div>
+                  <!-- Dynamic Leave Status Items -->
+                  <div id="teacher-my-leaves-list" class="space-y-2.5"></div>
+                </div>
 
                 <!-- NEXT CLASS FOCAL CARD (Desktop & Mobile Styled) -->
                 <div class="relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-3xl p-6 sm:p-7 shadow-xl shadow-indigo-950/20 overflow-hidden border border-indigo-800/40">
@@ -1865,6 +1894,29 @@
                     <p class="text-slate-500">Checked In: 01:57 PM • Checked Out: 03:50 PM • Students: 60/60</p>
                   </div>
                   <span class="px-2.5 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800">Completed</span>
+                </div>
+              </div>
+          </div>
+
+          <!-- TAB 6: MY LEAVE REQUESTS & HOD STATUS -->
+          <div id="teacher-tab-leaves" class="teacher-tab-pane hidden space-y-4">
+            <div class="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 class="font-black text-lg text-slate-900">My Leave Applications & HOD Approvals</h3>
+                  <p class="text-xs text-slate-500">Live real-time status of your leave requests, HOD decisions, and assigned substitutes</p>
+                </div>
+                <button onclick="openModal('modal-teacher-leave')" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  <span>Request New Leave</span>
+                </button>
+              </div>
+
+              <!-- List of all teacher leaves -->
+              <div id="teacher-full-leaves-list" class="space-y-3">
+                <div class="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                  <p class="font-bold text-sm text-slate-600">No Leave Requests Found</p>
+                  <p class="text-xs mt-0.5">Submit a leave request to track its approval status and substitute assignments.</p>
                 </div>
               </div>
             </div>

@@ -143,6 +143,21 @@ const DEFAULT_STATE = {
     { time: '09:50', subject: 'Python', class: 'IT-B', room: 'C204', status: 'Active', note: 'Live Class Slot' },
     { time: '11:00', subject: 'Maths', class: 'IT-C', room: 'C206', status: 'Upcoming', note: 'Scheduled' },
     { time: '01:30', subject: 'Lab', class: 'IT-A', room: 'Lab 1', status: 'Upcoming', note: 'Practical Session' }
+  ],
+
+  leavesList: [
+    {
+      id: 'leave-sample-1',
+      teacher_name: 'Arun Kumar',
+      teacher_email: 'arun@college.edu',
+      date: new Date().toISOString().split('T')[0],
+      periods: [1, 2, 3],
+      reason: 'Medical checkup & fever',
+      department: 'Information Technology',
+      status: 'pending',
+      substitute_teacher: null,
+      created_at: new Date().toISOString()
+    }
   ]
 };
 
@@ -170,6 +185,9 @@ if (!appState.masterTimetableSlots || !appState.masterTimetableSlots[0]?.p7) {
 }
 if (!appState.collegeBellSchedule) {
   appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
+}
+if (!appState.leavesList || !Array.isArray(appState.leavesList)) {
+  appState.leavesList = DEFAULT_STATE.leavesList || [];
 }
 
 let cloudSaveTimer = null;
@@ -887,6 +905,10 @@ function switchTeacherTab(tabId) {
   const targetPane = document.getElementById(`teacher-tab-${tabId}`);
   if (targetPane) targetPane.classList.remove('hidden');
 
+  if (tabId === 'leaves') {
+    renderTeacherLeaves();
+  }
+
   closeTeacherDrawer();
 }
 
@@ -1280,13 +1302,41 @@ function renderTeacherDashboard() {
     }
   }
 
+  // Check if teacher is on approved leave today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const approvedLeaveToday = (appState.leavesList || []).find(l => {
+    const tName = (l.teacher_name || '').toLowerCase();
+    return (tName.includes(currentTeacherName) || currentTeacherName.includes(tName)) &&
+           l.date === todayStr &&
+           l.status === 'approved';
+  });
+
+  if (approvedLeaveToday) {
+    if (nextClassBadge) {
+      nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm';
+      nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-pulse-dot"></span> ✓ ON APPROVED LEAVE';
+    }
+    if (checkInBtn) {
+      checkInBtn.className = 'w-full py-4 px-6 bg-emerald-800 text-white rounded-2xl font-bold text-base shadow-sm opacity-95 cursor-default flex items-center justify-center gap-2';
+      checkInBtn.innerHTML = `
+        <span>🏖️ ON LEAVE TODAY (APPROVED BY HOD)</span>
+      `;
+    }
+    if (checkinTimeText) {
+      checkinTimeText.textContent = `Substitute Assigned: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'} • Classes delegated for today`;
+    }
+  }
+
   // Render teacher daily timeline
   const timelineList = document.getElementById('teacher-timeline-list');
   if (timelineList) {
     timelineList.innerHTML = '';
     appState.teacherTodayClasses.forEach((item, idx) => {
       let pill = '';
-      if (item.status === 'Completed') {
+      if (approvedLeaveToday) {
+        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">🔄 Sub: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}</span>`;
+      } else if (item.status === 'Completed') {
         pill = '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">✓ Completed</span>';
       } else if (item.status === 'Active') {
         pill = appState.teacherCheckedIn
@@ -1316,7 +1366,6 @@ function renderTeacherDashboard() {
   const teacherTtBody = document.getElementById('teacher-weekly-timetable-tbody');
   if (teacherTtBody) {
     teacherTtBody.innerHTML = '';
-    const currentTeacherName = appState.currentUser?.name || 'Arun Kumar';
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
     const formatTeacherCell = (val) => {
@@ -1328,7 +1377,6 @@ function renderTeacherDashboard() {
     };
 
     days.forEach(d => {
-      // Find slots on this day where this teacher is assigned
       const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === d);
       const getSlotForPeriod = (pKey) => {
         const found = daySlots.find(s => (s[pKey] || '').toLowerCase().includes(currentTeacherName.toLowerCase()) || (s[pKey] || '').toLowerCase().includes('arun'));
@@ -1351,6 +1399,127 @@ function renderTeacherDashboard() {
       `;
       teacherTtBody.appendChild(tr);
     });
+  }
+
+  // Also refresh teacher leaves
+  renderTeacherLeaves();
+}
+
+// Render teacher leave requests status on Dashboard & dedicated Leave Status Tab
+function renderTeacherLeaves() {
+  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+  
+  // Find all leave requests submitted by this teacher
+  const allLeaves = appState.leavesList || [];
+  const myLeaves = allLeaves.filter(l => {
+    const tName = (l.teacher_name || '').toLowerCase();
+    const tEmail = (l.teacher_email || '').toLowerCase();
+    return tName.includes(currentTeacherName) || currentTeacherName.includes(tName) || (tEmail && tEmail === currentTeacherEmail);
+  });
+
+  // Calculate badge counts
+  const pendingCount = myLeaves.filter(l => l.status === 'pending').length;
+  const approvedCount = myLeaves.filter(l => l.status === 'approved').length;
+  const rejectedCount = myLeaves.filter(l => l.status === 'rejected').length;
+
+  const sidebarBadge = document.getElementById('teacher-sidebar-leaves-badge');
+  const drawerBadge = document.getElementById('teacher-drawer-leaves-badge');
+  
+  let badgeText = `${myLeaves.length}`;
+  let badgeClass = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600';
+  if (approvedCount > 0) {
+    badgeText = `${approvedCount} Approved`;
+    badgeClass = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800';
+  } else if (pendingCount > 0) {
+    badgeText = `${pendingCount} Pending`;
+    badgeClass = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800';
+  }
+
+  if (sidebarBadge) {
+    sidebarBadge.textContent = badgeText;
+    sidebarBadge.className = badgeClass;
+  }
+  if (drawerBadge) {
+    drawerBadge.textContent = badgeText;
+    drawerBadge.className = badgeClass;
+  }
+
+  // Render on Dashboard card
+  const dashboardCardList = document.getElementById('teacher-my-leaves-list');
+  const dashboardCard = document.getElementById('teacher-leave-status-card');
+  const fullLeavesList = document.getElementById('teacher-full-leaves-list');
+
+  if (myLeaves.length === 0) {
+    if (dashboardCard) dashboardCard.classList.add('hidden');
+    if (fullLeavesList) {
+      fullLeavesList.innerHTML = `
+        <div class="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+          <p class="font-bold text-sm text-slate-600">No Leave Requests Found</p>
+          <p class="text-xs mt-0.5">Submit a leave request using the button above to track its HOD approval status here.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  if (dashboardCard) dashboardCard.classList.remove('hidden');
+
+  const renderCardItem = (l) => {
+    let statusPill = '';
+    let statusBg = '';
+    let statusBorder = '';
+    let statusMessage = '';
+
+    if (l.status === 'approved') {
+      statusPill = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1"><span>✓</span> APPROVED BY HOD</span>';
+      statusBg = 'bg-emerald-50/60';
+      statusBorder = 'border-emerald-200';
+      statusMessage = `
+        <div class="mt-2 p-2.5 bg-white/80 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
+          <p class="font-bold flex items-center gap-1.5">
+            <span>🔄</span> Substitute Faculty Assigned: <span class="text-indigo-700 underline font-extrabold">${l.substitute_teacher || 'Dr. Rajesh'}</span>
+          </p>
+          <p class="text-[11px] text-slate-500">Your scheduled classes for ${l.date} have been delegated. You are excused from check-in.</p>
+        </div>
+      `;
+    } else if (l.status === 'rejected') {
+      statusPill = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1"><span>✕</span> REJECTED BY HOD</span>';
+      statusBg = 'bg-rose-50/60';
+      statusBorder = 'border-rose-200';
+      statusMessage = `
+        <div class="mt-2 p-2.5 bg-white/80 rounded-xl border border-rose-200 text-xs text-rose-900">
+          <p class="font-bold">Leave request was not approved.</p>
+          <p class="text-[11px] text-slate-600">Please attend scheduled classes or contact your HOD directly.</p>
+        </div>
+      `;
+    } else {
+      statusPill = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse flex items-center gap-1"><span>⏳</span> AWAITING HOD APPROVAL</span>';
+      statusBg = 'bg-amber-50/50';
+      statusBorder = 'border-amber-200';
+      statusMessage = '<p class="text-[11px] text-slate-500 mt-1">Submitted to HOD desk. You will be notified immediately upon approval.</p>';
+    }
+
+    return `
+      <div class="p-4 rounded-2xl border ${statusBorder} ${statusBg} transition space-y-1.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">📅 ${l.date}</span>
+            <span class="text-xs text-slate-600 font-semibold">Periods: ${l.periods?.join(', ') || 'Full Day'}</span>
+          </div>
+          ${statusPill}
+        </div>
+        <p class="text-xs text-slate-700"><strong>Reason:</strong> ${l.reason}</p>
+        ${statusMessage}
+      </div>
+    `;
+  };
+
+  if (dashboardCardList) {
+    dashboardCardList.innerHTML = myLeaves.map(renderCardItem).join('');
+  }
+  if (fullLeavesList) {
+    fullLeavesList.innerHTML = myLeaves.map(renderCardItem).join('');
   }
 }
 
@@ -1630,6 +1799,7 @@ async function handleTeacherSubmitLeave(e) {
   const newLeave = {
     id: 'leave-' + Date.now(),
     teacher_name: teacherName,
+    teacher_email: appState.currentUser?.email || '',
     date: date,
     periods: periods,
     reason: reason,
@@ -1644,6 +1814,8 @@ async function handleTeacherSubmitLeave(e) {
   appState.leavesList.unshift(newLeave);
   saveState();
   renderHodLeaves();
+  renderTeacherLeaves();
+  renderTeacherDashboard();
 
   closeModal('modal-teacher-leave');
   showToast(`Leave request for ${date} submitted successfully! Synced with HOD via Firebase.`, 'success');
@@ -1715,36 +1887,47 @@ function renderHodLeaves() {
   });
 }
 
-// 2a. HOD APPROVES LEAVE (SYNCED TO FIREBASE)
+// 2a. HOD APPROVES LEAVE (SYNCED TO FIREBASE & REAL-TIME TEACHER UPDATE)
 async function handleApproveLeave(leaveId) {
   appState.leavesList = appState.leavesList || [];
   const leave = appState.leavesList.find(l => String(l.id || l._id) === String(leaveId));
   if (leave) {
+    const deptTeachers = (appState.teachersList || []).filter(t => t.name !== leave.teacher_name && (t.department === leave.department || !leave.department));
+    const defaultSub = deptTeachers.length > 0 ? deptTeachers[0].name : 'Dr. Rajesh';
+    const chosenSub = prompt(`Assign substitute faculty for ${leave.teacher_name}:`, defaultSub);
+    if (chosenSub === null) return; // User cancelled
+    const subTeacher = chosenSub.trim() || defaultSub;
+
     leave.status = 'approved';
-    leave.substitute_teacher = 'Dr. Rajesh';
+    leave.substitute_teacher = subTeacher;
     saveState();
     renderHodLeaves();
-    showToast(`Leave for ${leave.teacher_name} approved! Dr. Rajesh assigned as substitute.`, 'success');
-  }
+    renderTeacherLeaves();
+    renderTeacherDashboard();
+    showToast(`Leave for ${leave.teacher_name} approved! ${subTeacher} assigned as substitute.`, 'success');
 
-  if (window.ApiClient) {
-    ApiClient.reviewLeave(leaveId, { status: "approved", substitute_teacher: "Dr. Rajesh" }).catch(() => {});
+    if (window.ApiClient) {
+      ApiClient.reviewLeave(leaveId, { status: "approved", substitute_teacher: subTeacher }).catch(() => {});
+    }
   }
 }
 
-// 2b. HOD REJECTS LEAVE (SYNCED TO FIREBASE)
+// 2b. HOD REJECTS LEAVE (SYNCED TO FIREBASE & REAL-TIME TEACHER UPDATE)
 async function handleRejectLeave(leaveId) {
   appState.leavesList = appState.leavesList || [];
   const leave = appState.leavesList.find(l => String(l.id || l._id) === String(leaveId));
   if (leave) {
+    if (!confirm(`Are you sure you want to reject the leave request for ${leave.teacher_name}?`)) return;
     leave.status = 'rejected';
     saveState();
     renderHodLeaves();
+    renderTeacherLeaves();
+    renderTeacherDashboard();
     showToast(`Leave request for ${leave.teacher_name} rejected.`, 'info');
-  }
 
-  if (window.ApiClient) {
-    ApiClient.reviewLeave(leaveId, { status: "rejected" }).catch(() => {});
+    if (window.ApiClient) {
+      ApiClient.reviewLeave(leaveId, { status: "rejected" }).catch(() => {});
+    }
   }
 }
 
@@ -2595,6 +2778,7 @@ function startClock() {
 function renderActiveViews() {
   renderHodDashboard();
   renderTeacherDashboard();
+  renderTeacherLeaves();
   renderAdminTables();
   renderAdminSubjects();
   renderAdminRooms();
@@ -2792,6 +2976,8 @@ function applyCloudState(cloudState) {
   if (Array.isArray(cloudState.leavesList)) {
     appState.leavesList = cloudState.leavesList;
     renderHodLeaves();
+    renderTeacherLeaves();
+    renderTeacherDashboard();
   }
   if (Array.isArray(cloudState.notificationsList)) {
     appState.notificationsList = cloudState.notificationsList;

@@ -1,5 +1,5 @@
-// FOLIO Service Worker v14.0.0 (Direct Firebase Realtime Sync)
-const CACHE_NAME = "folio-v14";
+// FOLIO Service Worker v15.0.0 (Teacher Leave HOD Realtime Indicators)
+const CACHE_NAME = "folio-v15";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
