@@ -1,5 +1,5 @@
-﻿// MyMonitorXX Service Worker v1.0.0
-const CACHE_NAME = "mymonitorxx-v1";
+// MyMonitorXX Service Worker v2.0.0 (Network-First for instant mobile updates)
+const CACHE_NAME = "mymonitorxx-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -13,32 +13,27 @@ const STATIC_ASSETS = [
   "/frontend/js/geolocation.js"
 ];
 
-// Install: Cache core application shell
+// Install: Skip waiting immediately to activate fresh worker
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("[ServiceWorker] Pre-caching offline shell");
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn("[ServiceWorker] Some assets could not be cached:", err);
-      });
-    })
-  );
   self.skipWaiting();
 });
 
-// Activate: Clean up old cache versions
+// Activate: Purge all old caches (including mymonitorxx-v1) and claim clients immediately
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        keys.filter((k) => k !== CACHE_NAME).map((k) => {
+          console.log("[ServiceWorker] Purging stale cache:", k);
+          return caches.delete(k);
+        })
       )
     )
   );
   self.clients.claim();
 });
 
-// Fetch: Network-first for dynamic API & WebSocket routes, Cache-first for static files
+// Fetch: Network-First strategy (always get fresh HTML/JS from Vercel, fallback to cache if offline)
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -47,25 +42,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-First for HTML, JS, and CSS so mobile users always get newest code
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
-          return networkResponse;
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return networkResponse;
-      }).catch(() => {
-        if (event.request.headers.get("accept")?.includes("text/html")) {
-          return caches.match("/index.html");
-        }
-      });
-    })
+      })
+      .catch(() => {
+        // Fallback to cache when offline
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.headers.get("accept")?.includes("text/html")) {
+            return caches.match("/index.html");
+          }
+        });
+      })
   );
 });
+
