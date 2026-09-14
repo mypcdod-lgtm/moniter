@@ -1,5 +1,5 @@
-// FOLIO Service Worker v13.0.0 (AI/DS Department Added)
-const CACHE_NAME = "folio-v13";
+// FOLIO Service Worker v14.0.0 (Direct Firebase Realtime Sync)
+const CACHE_NAME = "folio-v14";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
