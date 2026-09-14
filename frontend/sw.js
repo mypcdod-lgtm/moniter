@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v4.0.0 (Network-First with zero-blocking drawers)
-const CACHE_NAME = "mymonitorxx-v4";
+// MyMonitorXX Service Worker v5.0.0 (Cloud Auth sync across PC & Mobile)
+const CACHE_NAME = "mymonitorxx-v5";
 const STATIC_ASSETS = [
   "/",
   "/index.html",

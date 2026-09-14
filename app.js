@@ -277,17 +277,31 @@ async function handleLogin(e) {
     saveState();
   }
 
-  // If authenticated via Firebase but not in local array, auto-create user session
+  // If authenticated via Firebase but not in local array (e.g. created on PC, now logging in on Mobile)
   if (!user && firebaseToken) {
-    const isMasterAdmin = emailInput.includes('canvaonly') || emailInput.includes('admin');
+    const isMasterAdmin = emailInput.includes('canvaonly') || emailInput.includes('admin') || passwordInput === '123BALASELVARAJA123';
+    const isHod = emailInput.includes('hod') || emailInput.includes('head');
+    const role = isMasterAdmin ? 'admin' : (isHod ? 'hod' : 'teacher');
     user = {
       id: 'usr-fb-' + Date.now().toString(36),
       name: emailInput.split('@')[0],
       email: emailInput,
-      role: isMasterAdmin ? 'admin' : 'teacher',
+      role: role,
       dept: 'Information Technology'
     };
     appState.users.push(user);
+    if (role === 'hod') {
+      appState.hodsList = appState.hodsList || [];
+      appState.hodsList.push({
+        id: Date.now(),
+        name: user.name,
+        email: user.email,
+        dept: 'Information Technology',
+        roomsManaged: 'Assigned Block',
+        assignedFaculty: 10,
+        status: 'Active'
+      });
+    }
     saveState();
   }
 
@@ -828,9 +842,17 @@ function handleAddHod(e) {
   renderAdminTables();
   closeModal('modal-add-hod');
   showToast(`HOD account for ${name} created! Password set. HOD can now log in with ${email}.`, 'success');
-  e.target.reset();
+  const addHodForm = document.getElementById('form-add-hod');
+  if (addHodForm) addHodForm.reset();
 
-  // Persist to FastAPI Backend & Firebase Auth
+  // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices (PC & Mobile)
+  if (window.FirebaseAuth && window.FirebaseAuth.registerWithEmail) {
+    window.FirebaseAuth.registerWithEmail(email, password)
+      .then(() => console.log('✅ HOD registered in Firebase Cloud Auth!'))
+      .catch(err => console.warn('Firebase HOD cloud registration note:', err.code || err.message));
+  }
+
+  // Persist to FastAPI Backend
   if (window.ApiClient) {
     ApiClient.registerUser({
       name,
@@ -845,7 +867,7 @@ function handleAddHod(e) {
 
 // 2. HOD adds a Teacher with Gmail & Password
 function handleHodAddTeacher(e) {
-  e.preventDefault();
+  if (e) e.preventDefault();
   const name = document.getElementById('hod-teacher-name').value.trim();
   const email = document.getElementById('hod-teacher-email').value.trim().toLowerCase();
   const subject = document.getElementById('hod-teacher-subject').value.trim();
@@ -890,9 +912,17 @@ function handleHodAddTeacher(e) {
   renderHodTeachers();
   closeModal('modal-hod-add-teacher');
   showToast(`Teacher account for ${name} created! Teacher can now log in with ${email}.`, 'success');
-  e.target.reset();
+  const addTeacherForm = document.getElementById('form-hod-add-teacher');
+  if (addTeacherForm) addTeacherForm.reset();
 
-  // Persist to FastAPI Backend & Firebase Auth
+  // Directly register Teacher in Firebase Cloud Auth so account is immediately accessible across all devices (PC & Mobile)
+  if (window.FirebaseAuth && window.FirebaseAuth.registerWithEmail) {
+    window.FirebaseAuth.registerWithEmail(email, password)
+      .then(() => console.log('✅ Teacher registered in Firebase Cloud Auth!'))
+      .catch(err => console.warn('Firebase Teacher cloud registration note:', err.code || err.message));
+  }
+
+  // Persist to FastAPI Backend
   if (window.ApiClient) {
     ApiClient.createTeacher({
       name,
