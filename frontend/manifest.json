@@ -2,7 +2,7 @@
   "name": "FOLIO",
   "short_name": "FOLIO",
   "description": "FOLIO - Campus Timetable, Live Departmental Monitoring, and Faculty Portal",
-  "start_url": "https://mypcdod-lgtm.github.io/moniter/index.html",
+  "start_url": "https://mypcdod-lgtm.github.io/moniter/index.html?source=app",
   "scope": "https://mypcdod-lgtm.github.io/moniter/",
   "id": "https://mypcdod-lgtm.github.io/moniter/",
   "display": "standalone",

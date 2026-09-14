@@ -1,5 +1,5 @@
-// FOLIO Service Worker v11.0.0 (404 Prevention & Seamless Offline Fallback)
-const CACHE_NAME = "folio-v11";
+// FOLIO Service Worker v12.0.0 (Smart In-App Install Hiding)
+const CACHE_NAME = "folio-v12";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

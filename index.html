@@ -168,7 +168,7 @@
           </form>
 
           <!-- Quick Mobile Install Banner -->
-          <div class="pt-2">
+          <div id="login-install-banner" class="pt-2">
             <button type="button" onclick="openInstallModal()" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer">
               <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               <span>Install FOLIO App or Download APK</span>
@@ -2569,13 +2569,49 @@
       });
     }
 
+    // Detect if running inside installed APK or standalone PWA
+    function isRunningAsApp() {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+      if (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+      if (window.navigator.standalone === true) return true;
+      if (document.referrer && document.referrer.startsWith('android-app://')) return true;
+      const ua = navigator.userAgent || '';
+      if (/wv|Android.*Version\/[0-9.]+/i.test(ua)) return true;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('source') === 'app' || params.get('source') === 'pwa' || params.get('mode') === 'standalone') return true;
+      return false;
+    }
+
+    function checkAndHideIfInstalled() {
+      if (isRunningAsApp()) {
+        const installHeaderBtn = document.getElementById('btn-install-pwa');
+        const installLoginBanner = document.getElementById('login-install-banner');
+        if (installHeaderBtn) {
+          installHeaderBtn.style.display = 'none';
+          installHeaderBtn.classList.add('hidden');
+        }
+        if (installLoginBanner) {
+          installLoginBanner.style.display = 'none';
+          installLoginBanner.classList.add('hidden');
+        }
+      }
+    }
+
+    checkAndHideIfInstalled();
+    document.addEventListener('DOMContentLoaded', checkAndHideIfInstalled);
+    window.addEventListener('load', checkAndHideIfInstalled);
+
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      const installBtn = document.getElementById('btn-install-pwa');
-      if (installBtn) {
-        installBtn.classList.remove('hidden');
+      if (!isRunningAsApp()) {
+        const installBtn = document.getElementById('btn-install-pwa');
+        if (installBtn) {
+          installBtn.classList.remove('hidden');
+          installBtn.style.display = '';
+        }
       }
     });
 
@@ -2585,6 +2621,10 @@
     }
 
     function openInstallModal() {
+      if (isRunningAsApp()) {
+        if (typeof showToast === 'function') showToast('FOLIO is already installed and running on your device!', 'info');
+        return;
+      }
       const modal = document.getElementById('modal-folio-install');
       if (modal) {
         modal.classList.remove('hidden');
