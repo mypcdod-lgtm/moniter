@@ -1,5 +1,5 @@
-// MyMonitorXX Service Worker v9.0.0 (Secure Login & Professional Dashboards)
-const CACHE_NAME = "mymonitorxx-v9";
+// FOLIO Service Worker v10.0.0 (FOLIO Branding & Custom Icon)
+const CACHE_NAME = "folio-v10";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

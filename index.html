@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MyMonitorXX- Campus Timetable & Live Monitoring Portal</title>
+  <title>FOLIO - Campus Portal</title>
   <!-- PWA Meta & Manifest -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="shortcut icon" href="favicon.ico">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="frontend/icons/icon-192x192.png">
@@ -28,15 +30,11 @@
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
       <!-- App Brand -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
+        <img src="frontend/icons/icon-192x192.png" alt="FOLIO" class="w-10 h-10 rounded-xl object-contain border border-slate-200 shadow-sm bg-white p-1">
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">FOLIO<span class="text-indigo-600">XX</span></span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Campus OS</span>
+            <span class="font-black text-xl tracking-tight text-slate-900">FOLIO</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Campus OS</span>
           </div>
           <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Automated Timetable & Live Class Monitoring</p>
         </div>
@@ -135,11 +133,9 @@
         <!-- Login Card -->
         <div class="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/50 p-6 sm:p-8 space-y-6">
           <div class="text-center space-y-2">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-200">
-              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            </div>
-            <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Campus Portal Login</h2>
-            <p class="text-xs text-slate-500">Sign in with your campus Gmail address & password</p>
+            <img src="frontend/icons/icon-192x192.png" alt="FOLIO" class="w-16 h-16 rounded-2xl object-contain mx-auto shadow-md border border-slate-100 bg-white p-1">
+            <h2 class="text-2xl font-black text-slate-900 tracking-tight">FOLIO Login</h2>
+            <p class="text-xs text-slate-500">Sign in with your campus credentials</p>
           </div>
 
           <!-- Login Form -->

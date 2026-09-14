@@ -1,13 +1,13 @@
 {
-  "name": "MyMonitorXX - Campus Timetable & Live Monitoring Portal",
-  "short_name": "MyMonitorXX",
-  "description": "Automated college timetable generator, live departmental attendance monitoring, and GPS teacher check-in PWA",
+  "name": "FOLIO",
+  "short_name": "FOLIO",
+  "description": "FOLIO - Campus Timetable, Live Departmental Monitoring, and Faculty Portal",
   "start_url": "./",
   "scope": "./",
   "id": "./",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "categories": [
     "education",
