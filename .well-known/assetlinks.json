@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "io.github.mypcdod_lgtm.folio",
-        "sha256_cert_fingerprints": ["C0:56:07:3C:FE:1E:6B:59:7C:E2:73:ED:AD:E0:97:6A:D2:F3:D4:BC:BF:25:9D:94:E7:56:9A:59:4F:6C:3F:CC"]
+        "sha256_cert_fingerprints": ["92:A7:F3:30:3B:8D:D0:7C:20:0B:C3:86:9C:2F:54:8F:AA:DF:A3:75:D3:84:17:36:60:91:04:07:D1:5B:46:30"]
       }
     }]
