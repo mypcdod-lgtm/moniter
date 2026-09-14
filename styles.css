@@ -49,12 +49,39 @@ body {
 .mobile-drawer-panel {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.drawer-closed {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 .drawer-closed .mobile-drawer-overlay {
   opacity: 0;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 .drawer-closed .mobile-drawer-panel {
   transform: translateX(-100%);
+  pointer-events: none !important;
+}
+
+/* Ensure open drawers receive touches smoothly */
+#admin-mobile-drawer:not(.drawer-closed),
+#hod-mobile-drawer:not(.drawer-closed),
+#teacher-mobile-drawer:not(.drawer-closed) {
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+#admin-mobile-drawer:not(.drawer-closed) .mobile-drawer-overlay,
+#hod-mobile-drawer:not(.drawer-closed) .mobile-drawer-overlay,
+#teacher-mobile-drawer:not(.drawer-closed) .mobile-drawer-overlay,
+#admin-mobile-drawer:not(.drawer-closed) .mobile-drawer-panel,
+#hod-mobile-drawer:not(.drawer-closed) .mobile-drawer-panel,
+#teacher-mobile-drawer:not(.drawer-closed) .mobile-drawer-panel {
+  pointer-events: auto !important;
+}
+
+/* Global Mobile Touch Optimization (Removes 300ms mobile tap delay) */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Smooth view transitions */
