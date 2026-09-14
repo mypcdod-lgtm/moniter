@@ -132,17 +132,24 @@ const DEFAULT_STATE = {
   ],
 
   masterTimetableSlots: [
-    { id: 'slot-1', day: 'Monday', section: 'IT-A', p1: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p2: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C204)' },
-    { id: 'slot-2', day: 'Monday', section: 'IT-B', p1: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p2: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'DBMS Lab (Kumar • Lab 1)', p6: 'DBMS Lab (Kumar • Lab 1)', p7: 'Library / Seminar' },
+    { id: 'slot-1', day: 'Monday', section: 'IT-A', p1: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p2: 'Python (Arun • C204)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C204)' },
+    { id: 'slot-2', day: 'Monday', section: 'IT-B', p1: 'Python (Arun • C205)', p2: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'DBMS Lab (Kumar • Lab 1)', p6: 'DBMS Lab (Kumar • Lab 1)', p7: 'Library / Seminar' },
     { id: 'slot-3', day: 'Tuesday', section: 'IT-A', p1: 'Python (Arun • C204)', p2: 'Web Tech (Sneha • C204)', p3: 'Java (Suresh • C204)', p4: 'Maths (Priya • C204)', p5: 'DBMS (Kumar • C204)', p6: 'Sports / Club', p7: 'Library' },
-    { id: 'slot-4', day: 'Tuesday', section: 'IT-B', p1: 'Java (Suresh • C205)', p2: 'Python (Arun • C205)', p3: 'DBMS (Kumar • C205)', p4: 'Maths (Priya • C205)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C205)' }
+    { id: 'slot-4', day: 'Tuesday', section: 'IT-B', p1: 'Java (Suresh • C205)', p2: 'Python (Arun • C205)', p3: 'DBMS (Kumar • C205)', p4: 'Maths (Priya • C205)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C205)' },
+    { id: 'slot-5', day: 'Wednesday', section: 'IT-A', p1: 'Python (Arun • C204)', p2: 'DBMS (Kumar • C204)', p3: 'Maths (Priya • C204)', p4: 'Java (Suresh • C204)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Mentoring' },
+    { id: 'slot-6', day: 'Wednesday', section: 'IT-B', p1: 'DBMS (Kumar • C205)', p2: 'Java (Suresh • C205)', p3: 'Python (Arun • C205)', p4: 'Web Tech (Sneha • C205)', p5: 'Maths (Priya • C205)', p6: 'Sports', p7: 'Library' },
+    { id: 'slot-7', day: 'Thursday', section: 'IT-A', p1: 'Java (Suresh • C204)', p2: 'Maths (Priya • C204)', p3: 'Python (Arun • C204)', p4: 'DBMS (Kumar • C204)', p5: 'DBMS Lab (Kumar • Lab 1)', p6: 'DBMS Lab (Kumar • Lab 1)', p7: 'Seminar' },
+    { id: 'slot-8', day: 'Thursday', section: 'IT-B', p1: 'Python (Arun • C205)', p2: 'DBMS (Kumar • C205)', p3: 'Java (Suresh • C205)', p4: 'Maths (Priya • C205)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Library' },
+    { id: 'slot-9', day: 'Friday', section: 'IT-A', p1: 'DBMS (Kumar • C204)', p2: 'Python (Arun • C204)', p3: 'Web Tech (Sneha • C204)', p4: 'Maths (Priya • C204)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Placement Prep' },
+    { id: 'slot-10', day: 'Friday', section: 'IT-B', p1: 'Web Tech (Sneha • C205)', p2: 'Java (Suresh • C205)', p3: 'DBMS (Kumar • C205)', p4: 'Python (Arun • C205)', p5: 'Maths (Priya • C205)', p6: 'Placement Prep', p7: 'Sports' }
   ],
 
   teacherTodayClasses: [
-    { time: '09:00', subject: 'DBMS', class: 'IT-A', room: 'C205', status: 'Completed', note: 'Attendance recorded' },
-    { time: '09:50', subject: 'Python', class: 'IT-B', room: 'C204', status: 'Active', note: 'Live Class Slot' },
-    { time: '11:00', subject: 'Maths', class: 'IT-C', room: 'C206', status: 'Upcoming', note: 'Scheduled' },
-    { time: '01:30', subject: 'Lab', class: 'IT-A', room: 'Lab 1', status: 'Upcoming', note: 'Practical Session' }
+    { time: '09:00 - 09:50', subject: 'Python Programming', class: 'IT-A', room: 'C204', status: 'Completed', note: 'Attendance recorded' },
+    { time: '09:50 - 10:40', subject: 'Python Programming', class: 'IT-B', room: 'C205', status: 'Completed', note: 'Attendance recorded' },
+    { time: '11:00 - 11:50', subject: 'Python Tutorial', class: 'IT-A', room: 'C204', status: 'Completed', note: 'Problem Solving' },
+    { time: '01:30 - 02:20', subject: 'Python Lab', class: 'IT-A', room: 'Lab 2', status: 'Upcoming', note: 'Practical Session' },
+    { time: '02:20 - 03:10', subject: 'Python Lab', class: 'IT-A', room: 'Lab 2', status: 'Upcoming', note: 'Practical Session' }
   ],
 
   leavesList: [
@@ -180,7 +187,7 @@ if (!appState.studentBatches) {
 if (!appState.subjectTeacherMappings || appState.subjectTeacherMappings.length === 0) {
   appState.subjectTeacherMappings = DEFAULT_STATE.subjectTeacherMappings;
 }
-if (!appState.masterTimetableSlots || !appState.masterTimetableSlots[0]?.p7) {
+if (!appState.masterTimetableSlots || appState.masterTimetableSlots.length < 5 || !appState.masterTimetableSlots[0]?.p7) {
   appState.masterTimetableSlots = DEFAULT_STATE.masterTimetableSlots;
 }
 if (!appState.collegeBellSchedule) {
@@ -1240,19 +1247,140 @@ function confirmSubstituteAssignment(teacherName) {
 // TEACHER DASHBOARD & CHECK-IN (WITH FREE DEVICE GPS VERIFICATION)
 // =========================================================================
 
-async function handleTeacherCheckIn() {
+let currentActiveTeacherClass = null;
+
+// Parse any time string (e.g., "09:00", "01:30", "1:30 PM", "13:30") into minutes from midnight (0 - 1440)
+function parseTimeToMinutes(timeStr) {
+  if (!timeStr) return 0;
+  timeStr = timeStr.trim();
+  const isPM = /pm/i.test(timeStr);
+  const isAM = /am/i.test(timeStr);
+  const cleaned = timeStr.replace(/am|pm/i, '').trim();
+  const parts = cleaned.split(':');
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+  // If no AM/PM marker (e.g. "01:30", "02:20", "03:10", "04:00"), hours 1..6 represent afternoon college periods (13:00 to 18:00)
+  if (!isPM && !isAM && hours >= 1 && hours <= 6) {
+    hours += 12;
+  }
+  return hours * 60 + minutes;
+}
+
+// Dynamically extract the teacher's schedule for today from masterTimetableSlots or fallback
+function getTeacherTodaySchedule(teacherName) {
+  const currentTeacherName = (teacherName || appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const now = new Date();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  let currentDay = dayNames[now.getDay()];
+  const isWeekend = currentDay === 'Sunday' || currentDay === 'Saturday';
+  const targetDay = isWeekend ? 'Monday' : currentDay;
+
+  const bell = appState.collegeBellSchedule || DEFAULT_STATE.collegeBellSchedule;
+  const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === targetDay);
+
+  const periodKeys = [
+    { pKey: 'p1', periodNum: 1 },
+    { pKey: 'p2', periodNum: 2 },
+    { pKey: 'p3', periodNum: 3 },
+    { pKey: 'p4', periodNum: 4 },
+    { pKey: 'p5', periodNum: 5 },
+    { pKey: 'p6', periodNum: 6 },
+    { pKey: 'p7', periodNum: 7 }
+  ];
+
+  const classes = [];
+
+  periodKeys.forEach(pk => {
+    const bellItem = bell.find(b => b.period === pk.periodNum);
+    const timeRange = bellItem ? bellItem.time : '';
+    const times = timeRange.split('-').map(t => t.trim());
+    const startMin = times[0] ? parseTimeToMinutes(times[0]) : 0;
+    const endMin = times[1] ? parseTimeToMinutes(times[1]) : 0;
+
+    daySlots.forEach(slot => {
+      const cellVal = slot[pk.pKey] || '';
+      const cellLower = cellVal.toLowerCase();
+      const matches = cellLower.includes(currentTeacherName) || 
+                      (currentTeacherName.includes('arun') && cellLower.includes('arun')) ||
+                      (currentTeacherName.split(' ')[0] && cellLower.includes(currentTeacherName.split(' ')[0]));
+
+      if (matches) {
+        let subject = cellVal;
+        let room = 'Room C204';
+        if (cellVal.includes('(') && cellVal.includes(')')) {
+          const parts = cellVal.split('(');
+          subject = parts[0].trim();
+          const inside = parts[1].replace(')', '').trim();
+          const insideParts = inside.split('•').map(p => p.trim());
+          if (insideParts.length > 1) {
+            room = insideParts[1];
+          }
+        }
+
+        classes.push({
+          period: pk.periodNum,
+          periodName: `Period ${pk.periodNum}`,
+          time: timeRange,
+          startMin: startMin,
+          endMin: endMin,
+          subject: subject,
+          fullTitle: cellVal,
+          class: slot.section || 'IT-A',
+          room: room,
+          day: targetDay,
+          isWeekend: isWeekend
+        });
+      }
+    });
+  });
+
+  // If no classes configured in timetable for this teacher, fallback to DEFAULT_STATE.teacherTodayClasses
+  if (classes.length === 0) {
+    const fallbackList = appState.teacherTodayClasses || DEFAULT_STATE.teacherTodayClasses;
+    return fallbackList.map((item, idx) => {
+      const bellItem = bell.find(b => !b.isBreak && b.time.startsWith(item.time.split(' - ')[0])) || bell[idx] || { time: item.time };
+      const times = (bellItem.time || item.time).split('-').map(t => t.trim());
+      const startMin = times[0] ? parseTimeToMinutes(times[0]) : (540 + idx * 60);
+      const endMin = times[1] ? parseTimeToMinutes(times[1]) : (startMin + 50);
+      return {
+        period: idx + 1,
+        periodName: `Period ${idx + 1}`,
+        time: bellItem.time || item.time,
+        startMin: startMin,
+        endMin: endMin,
+        subject: item.subject,
+        fullTitle: item.subject,
+        class: item.class,
+        room: item.room,
+        day: targetDay,
+        isWeekend: isWeekend,
+        note: item.note
+      };
+    });
+  }
+
+  return classes;
+}
+
+async function handleTeacherCheckIn(classObj) {
   const isCheckingIn = !appState.teacherCheckedIn;
+  const targetClass = classObj || currentActiveTeacherClass;
+  const targetRoom = targetClass?.room || 'Room C204';
+  const targetBatch = targetClass?.class || 'IT-A';
 
   if (isCheckingIn) {
-    showToast('📍 Acquiring device GPS coordinates...', 'info');
+    showToast(`📍 Acquiring device GPS coordinates for ${targetRoom}...`, 'info');
 
     try {
       if (window.GeoLocationHelper && window.GeoLocationHelper.isSupported()) {
-        const result = await window.GeoLocationHelper.performTeacherCheckIn('IT-A', 'C204', appState.currentUser?.dept || 'Information Technology');
+        const result = await window.GeoLocationHelper.performTeacherCheckIn(targetBatch, targetRoom, appState.currentUser?.dept || 'Information Technology');
         console.log('[GPS Check-in Result]:', result);
-        showToast(`✓ GPS Verified (${result.distance_meters}m from C204)! Room C204 is now ACTIVE.`, 'success');
+        showToast(`✓ GPS Verified (${result.distance_meters}m from ${targetRoom})! Room ${targetRoom} is now ACTIVE.`, 'success');
       } else {
-        showToast('Checked in successfully! Room C204 status is now ACTIVE.', 'success');
+        showToast(`Checked in successfully! Room ${targetRoom} status is now ACTIVE.`, 'success');
       }
     } catch (err) {
       console.warn('GPS Verification fallback:', err.message);
@@ -1260,14 +1388,16 @@ async function handleTeacherCheckIn() {
     }
 
     appState.teacherCheckedIn = true;
-    const arunClass = appState.liveMonitoring.find(c => c.teacher === 'Arun' && c.class === 'IT-A');
+    const arunClass = (appState.liveMonitoring || []).find(c => (c.teacher || '').toLowerCase().includes('arun') || c.class === targetBatch);
     if (arunClass) {
       arunClass.status = 'ACTIVE';
-      appState.hodStats.active = Math.min(appState.hodStats.totalClasses, appState.hodStats.active + 1);
+      if (appState.hodStats) {
+        appState.hodStats.active = Math.min(appState.hodStats.totalClasses || 10, (appState.hodStats.active || 0) + 1);
+      }
     }
   } else {
     appState.teacherCheckedIn = false;
-    showToast('Checked out of Room C204.', 'info');
+    showToast(`Checked out of ${targetRoom}.`, 'info');
   }
 
   saveState();
@@ -1280,59 +1410,188 @@ function renderTeacherDashboard() {
   const nextClassBadge = document.getElementById('teacher-next-class-badge');
   const checkinTimeText = document.getElementById('teacher-checkin-time');
 
-  if (checkInBtn && nextClassBadge && checkinTimeText) {
-    if (appState.teacherCheckedIn) {
-      checkInBtn.className = 'w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2 transform active:scale-95';
-      checkInBtn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-        <span>CHECKED IN • IN PROGRESS</span>
-      `;
-      nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white flex items-center gap-1.5';
-      nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-pulse-dot"></span> LIVE CLASS';
-      checkinTimeText.textContent = 'Geo-verified at C204 • Attendance mode open';
-    } else {
-      checkInBtn.className = 'w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 transform active:scale-95';
-      checkInBtn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004 11a7.96 7.96 0 004.28 7.05"/></svg>
-        <span>CHECK IN NOW</span>
-      `;
-      nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-indigo-500 text-white flex items-center gap-1.5';
-      nextClassBadge.innerHTML = 'UPCOMING (10:00 AM)';
-      checkinTimeText.textContent = 'Tap to check-in when entering Room C204';
-    }
-  }
+  const focalTitle = document.getElementById('teacher-next-class-title-text');
+  const focalTime = document.getElementById('teacher-next-class-time');
+  const focalSubject = document.getElementById('teacher-next-class-subject');
+  const focalClass = document.getElementById('teacher-next-class-class');
+  const focalRoom = document.getElementById('teacher-next-class-room');
+  const focalCap = document.getElementById('teacher-next-class-cap');
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayDayName = dayNames[now.getDay()];
 
   // Check if teacher is on approved leave today
-  const todayStr = new Date().toISOString().split('T')[0];
+  const localToday = now.toLocaleDateString('en-CA');
+  const utcToday = now.toISOString().split('T')[0];
   const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
   const approvedLeaveToday = (appState.leavesList || []).find(l => {
     const tName = (l.teacher_name || '').toLowerCase();
-    return (tName.includes(currentTeacherName) || currentTeacherName.includes(tName)) &&
-           l.date === todayStr &&
-           l.status === 'approved';
+    const tEmail = (l.teacher_email || '').toLowerCase();
+    const matchesTeacher = (tName && (tName.includes(currentTeacherName) || currentTeacherName.includes(tName))) ||
+                           (tEmail && currentTeacherEmail && tEmail === currentTeacherEmail);
+    return matchesTeacher && (l.date === localToday || l.date === utcToday) && l.status === 'approved';
   });
 
+  // Get dynamic schedule for current teacher
+  const todayClasses = getTeacherTodaySchedule(currentTeacherName);
+
+  // Assign live statuses to each class based on current clock time
+  todayClasses.forEach(c => {
+    if (currentMinutes >= c.endMin) {
+      c.status = 'Completed';
+    } else if (currentMinutes >= c.startMin && currentMinutes < c.endMin) {
+      c.status = 'Active';
+    } else {
+      c.status = 'Upcoming';
+    }
+  });
+
+  // Determine which class should be shown in the focal card:
+  // 1. If there's an Active class, show it as LIVE NOW!
+  // 2. Else if there's an Upcoming class, show the soonest Upcoming class as NEXT SCHEDULED CLASS!
+  // 3. Else all classes today are completed.
+  const activeClass = todayClasses.find(c => c.status === 'Active');
+  const upcomingClass = todayClasses.find(c => c.status === 'Upcoming');
+  let focalClassObj = activeClass || upcomingClass || todayClasses[todayClasses.length - 1];
+  currentActiveTeacherClass = focalClassObj;
+
+  const isActiveNow = Boolean(activeClass);
+  const isAllCompleted = todayClasses.length > 0 && todayClasses.every(c => c.status === 'Completed');
+
+  // Handle Approved Leave override
   if (approvedLeaveToday) {
+    if (focalTitle) focalTitle.textContent = 'ON APPROVED LEAVE';
     if (nextClassBadge) {
       nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm';
-      nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-pulse-dot"></span> ✓ ON APPROVED LEAVE';
+      nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-pulse-dot"></span> ✓ APPROVED LEAVE';
     }
+    if (focalTime) focalTime.textContent = 'Excused for Today';
+    if (focalSubject) focalSubject.textContent = 'Leave Approved by HOD';
+    if (focalClass) focalClass.textContent = `Substitute: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}`;
+    if (focalRoom) focalRoom.textContent = 'Classes Delegated';
+    if (focalCap) focalCap.textContent = approvedLeaveToday.reason || 'Medical / Personal';
+
     if (checkInBtn) {
       checkInBtn.className = 'w-full py-4 px-6 bg-emerald-800 text-white rounded-2xl font-bold text-base shadow-sm opacity-95 cursor-default flex items-center justify-center gap-2';
-      checkInBtn.innerHTML = `
-        <span>🏖️ ON LEAVE TODAY (APPROVED BY HOD)</span>
-      `;
+      checkInBtn.innerHTML = `<span>🏖️ ON LEAVE TODAY (APPROVED BY HOD)</span>`;
+      checkInBtn.onclick = null;
     }
     if (checkinTimeText) {
-      checkinTimeText.textContent = `Substitute Assigned: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'} • Classes delegated for today`;
+      checkinTimeText.textContent = `Substitute Assigned: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'} • Attendance waived for today`;
+    }
+  } else if (isAllCompleted) {
+    // All scheduled classes for today have concluded
+    if (focalTitle) focalTitle.textContent = "TODAY'S SCHEDULE COMPLETED";
+    if (nextClassBadge) {
+      nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white flex items-center gap-1.5 shadow-sm';
+      nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white"></span> ✓ ALL SESSIONS CONCLUDED';
+    }
+    if (focalTime) focalTime.textContent = 'Done for Today';
+    if (focalSubject) focalSubject.textContent = 'Daily Classes Concluded';
+    if (focalClass) focalClass.textContent = `${todayClasses.length} Sessions Conducted`;
+    if (focalRoom) focalRoom.textContent = 'Attendance Synced with HOD';
+    if (focalCap) focalCap.textContent = 'Next session tomorrow';
+
+    if (checkInBtn) {
+      checkInBtn.className = 'w-full py-4 px-6 bg-slate-800 text-slate-300 rounded-2xl font-bold text-sm shadow-sm opacity-90 cursor-default flex items-center justify-center gap-2';
+      checkInBtn.innerHTML = `<span>✓ ALL CLASSES COMPLETED FOR TODAY</span>`;
+      checkInBtn.onclick = null;
+    }
+    if (checkinTimeText) {
+      checkinTimeText.textContent = `All ${todayClasses.length} assigned periods concluded. Check timetable for tomorrow's schedule.`;
+    }
+  } else if (focalClassObj) {
+    // Populate focal card with the exact live/upcoming class
+    if (focalTime) focalTime.textContent = focalClassObj.time;
+    if (focalSubject) focalSubject.textContent = focalClassObj.subject;
+    if (focalClass) focalClass.textContent = `Class: ${focalClassObj.class}`;
+    if (focalRoom) focalRoom.textContent = `Room: ${focalClassObj.room}`;
+    if (focalCap) focalCap.textContent = `${focalClassObj.periodName} • ${focalClassObj.day}`;
+
+    if (checkInBtn) {
+      checkInBtn.onclick = () => handleTeacherCheckIn(focalClassObj);
+    }
+
+    if (isActiveNow) {
+      if (focalTitle) focalTitle.textContent = 'LIVE CLASS (NOW IN PROGRESS)';
+      if (appState.teacherCheckedIn) {
+        if (nextClassBadge) {
+          nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm';
+          nextClassBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-white animate-pulse-dot"></span> LIVE CLASS • CHECKED IN';
+        }
+        if (checkInBtn) {
+          checkInBtn.className = 'w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-extrabold text-base shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-3 transform active:scale-98 cursor-pointer';
+          checkInBtn.innerHTML = `
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span>CHECKED IN • IN PROGRESS</span>
+          `;
+        }
+        if (checkinTimeText) {
+          checkinTimeText.textContent = `Geo-verified at ${focalClassObj.room} • Broadcasted to HOD Live Board`;
+        }
+      } else {
+        if (nextClassBadge) {
+          nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white flex items-center gap-1.5 shadow-sm animate-pulse';
+          nextClassBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-white animate-ping"></span> 🟢 LIVE NOW (${focalClassObj.time})`;
+        }
+        if (checkInBtn) {
+          checkInBtn.className = 'w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-base shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center gap-3 transform active:scale-98 cursor-pointer';
+          checkInBtn.innerHTML = `
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004 11a7.96 7.96 0 004.28 7.05"/></svg>
+            <span>CHECK IN NOW (${focalClassObj.room})</span>
+          `;
+        }
+        if (checkinTimeText) {
+          checkinTimeText.textContent = `Tap to check-in at ${focalClassObj.room} (Broadcasts to HOD Live Board)`;
+        }
+      }
+    } else {
+      // Upcoming class
+      const startTimeStr = focalClassObj.time.split('-')[0].trim();
+      if (focalTitle) focalTitle.textContent = 'NEXT SCHEDULED CLASS';
+      if (nextClassBadge) {
+        nextClassBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-indigo-500 text-white flex items-center gap-1.5 shadow-sm';
+        nextClassBadge.innerHTML = `UPCOMING (${startTimeStr})`;
+      }
+      if (checkInBtn) {
+        checkInBtn.className = 'w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold text-base shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center gap-3 transform active:scale-98 cursor-pointer';
+        checkInBtn.innerHTML = `
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004 11a7.96 7.96 0 004.28 7.05"/></svg>
+          <span>CHECK IN (${focalClassObj.room})</span>
+        `;
+      }
+      if (checkinTimeText) {
+        checkinTimeText.textContent = `Starts at ${startTimeStr} • Tap to check-in when entering ${focalClassObj.room}`;
+      }
     }
   }
 
-  // Render teacher daily timeline
+  // Workload cards metrics
+  const completedClasses = todayClasses.filter(c => c.status === 'Completed');
+  const metricTodayTotal = document.getElementById('teacher-metric-today-total');
+  const metricTodayCompleted = document.getElementById('teacher-metric-today-completed');
+  const metricTodaySub = document.getElementById('teacher-metric-today-sub');
+  const metricTodayCompletedSub = document.getElementById('teacher-metric-today-completed-sub');
+
+  if (metricTodayTotal) metricTodayTotal.textContent = `${todayClasses.length} Classes`;
+  if (metricTodaySub) metricTodaySub.textContent = `${todayDayName} Schedule`;
+  if (metricTodayCompleted) metricTodayCompleted.textContent = `${completedClasses.length} ${completedClasses.length === 1 ? 'Class' : 'Classes'}`;
+  if (metricTodayCompletedSub) metricTodayCompletedSub.textContent = completedClasses.length > 0 ? `✓ ${completedClasses[completedClasses.length - 1].subject}` : 'None yet';
+
+  // Render teacher daily timeline (Right Column)
   const timelineList = document.getElementById('teacher-timeline-list');
+  const scheduleMeta = document.getElementById('teacher-today-schedule-meta');
+  const classesCountBadge = document.getElementById('teacher-today-classes-count');
+
+  if (scheduleMeta) scheduleMeta.textContent = `${todayDayName} • ${todayClasses.length} Periods Scheduled`;
+  if (classesCountBadge) classesCountBadge.textContent = `${todayClasses.length} Classes`;
+
   if (timelineList) {
     timelineList.innerHTML = '';
-    appState.teacherTodayClasses.forEach((item, idx) => {
+    todayClasses.forEach(item => {
       let pill = '';
       if (approvedLeaveToday) {
         pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">🔄 Sub: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}</span>`;
@@ -1340,25 +1599,60 @@ function renderTeacherDashboard() {
         pill = '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">✓ Completed</span>';
       } else if (item.status === 'Active') {
         pill = appState.teacherCheckedIn
-          ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">🟢 Active</span>'
-          : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">⚪ Pending Check-In</span>';
+          ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">🟢 Active (In Progress)</span>'
+          : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">⚪ Live Now (Pending Check-In)</span>';
       } else {
-        pill = '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">Upcoming</span>';
+        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">Upcoming (${item.time.split('-')[0].trim()})</span>`;
       }
 
       const div = document.createElement('div');
-      div.className = 'flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-100 hover:shadow-sm transition';
+      div.className = `flex items-start gap-3 p-3 rounded-xl border transition ${item.status === 'Active' ? 'bg-indigo-50/50 border-indigo-200 shadow-xs' : 'bg-white border-slate-100 hover:shadow-xs'}`;
       div.innerHTML = `
-        <div class="text-xs font-mono font-bold text-slate-400 pt-0.5 w-14">${item.time.split(' - ')[0]}</div>
+        <div class="text-xs font-mono font-bold text-slate-500 pt-0.5 w-16">${item.time.split('-')[0].trim()}</div>
         <div class="flex-1">
           <div class="flex items-center justify-between">
             <h4 class="font-bold text-slate-800 text-sm">${item.subject}</h4>
             ${pill}
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">${item.class} • ${item.room} • ${item.note}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${item.class} • ${item.room} • ${item.periodName}</p>
         </div>
       `;
       timelineList.appendChild(div);
+    });
+  }
+
+  // Render Tab 2 ("Today's Classes Full List") if container exists
+  const tabClassesGrid = document.getElementById('teacher-all-today-classes');
+  if (tabClassesGrid) {
+    tabClassesGrid.innerHTML = '';
+    todayClasses.forEach(item => {
+      let statusBadge = '';
+      let borderBg = '';
+      if (approvedLeaveToday) {
+        statusBadge = `<span class="text-xs font-bold text-emerald-700">🔄 SUB ASSIGNED: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}</span>`;
+        borderBg = 'border-emerald-200 bg-emerald-50/40';
+      } else if (item.status === 'Completed') {
+        statusBadge = '<span class="text-xs font-bold text-emerald-700">✓ COMPLETED</span>';
+        borderBg = 'border-emerald-200 bg-emerald-50/40';
+      } else if (item.status === 'Active') {
+        statusBadge = '<span class="text-xs font-bold text-indigo-700">🟢 CURRENT SLOT</span>';
+        borderBg = 'border-indigo-300 bg-indigo-50/40';
+      } else {
+        statusBadge = '<span class="text-xs font-bold text-slate-500">⚪ UPCOMING</span>';
+        borderBg = 'border-slate-200 bg-slate-50';
+      }
+
+      const card = document.createElement('div');
+      card.className = `p-4 rounded-2xl border ${borderBg} space-y-2`;
+      card.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-white border border-slate-200">${item.time}</span>
+          ${statusBadge}
+        </div>
+        <h4 class="font-bold text-slate-900 text-base">${item.subject}</h4>
+        <p class="text-xs text-slate-600">Batch: <strong>${item.class}</strong> • Room: <strong>${item.room}</strong> • ${item.periodName}</p>
+      `;
+      tabClassesGrid.appendChild(card);
     });
   }
 
@@ -1370,7 +1664,7 @@ function renderTeacherDashboard() {
 
     const formatTeacherCell = (val) => {
       if (!val || val === '-') return '<span class="text-slate-300 font-mono">-</span>';
-      if (val.toLowerCase().includes(currentTeacherName.toLowerCase()) || val.toLowerCase().includes('arun')) {
+      if (val.toLowerCase().includes(currentTeacherName) || val.toLowerCase().includes('arun')) {
         return `<div class="p-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-950 leading-tight">${val}</div>`;
       }
       return '<span class="text-slate-400 text-[11px]">Free / Prep</span>';
@@ -1379,7 +1673,7 @@ function renderTeacherDashboard() {
     days.forEach(d => {
       const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === d);
       const getSlotForPeriod = (pKey) => {
-        const found = daySlots.find(s => (s[pKey] || '').toLowerCase().includes(currentTeacherName.toLowerCase()) || (s[pKey] || '').toLowerCase().includes('arun'));
+        const found = daySlots.find(s => (s[pKey] || '').toLowerCase().includes(currentTeacherName) || (s[pKey] || '').toLowerCase().includes('arun'));
         return found ? `${found[pKey]} (${found.section})` : '-';
       };
 
@@ -2760,6 +3054,7 @@ async function markAllNotificationsRead() {
 
 // Live Clock updates
 function startClock() {
+  let lastCheckedMinute = -1;
   function update() {
     const clockEl = document.getElementById('live-clock');
     const teacherClockEl = document.getElementById('teacher-live-clock');
@@ -2769,6 +3064,15 @@ function startClock() {
 
     if (clockEl) clockEl.textContent = `${dateStr} • ${timeStr}`;
     if (teacherClockEl) teacherClockEl.textContent = timeStr;
+
+    // Refresh teacher dashboard automatically if minute changed
+    const currentMin = now.getMinutes();
+    if (currentMin !== lastCheckedMinute) {
+      lastCheckedMinute = currentMin;
+      if (appState.currentUser && appState.currentUser.role === 'teacher') {
+        renderTeacherDashboard();
+      }
+    }
   }
   update();
   setInterval(update, 1000);

@@ -1649,22 +1649,22 @@
                 <div class="relative bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-3xl p-6 sm:p-7 shadow-xl shadow-indigo-950/20 overflow-hidden border border-indigo-800/40">
                   <div class="relative z-10 space-y-5">
                     <div class="flex items-center justify-between">
-                      <span class="text-xs uppercase tracking-wider font-extrabold text-indigo-300 flex items-center gap-2">
+                      <span id="teacher-next-class-title" class="text-xs uppercase tracking-wider font-extrabold text-indigo-300 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse-dot"></span>
-                        NEXT SCHEDULED CLASS
+                        <span id="teacher-next-class-title-text">NEXT SCHEDULED CLASS</span>
                       </span>
                       <span id="teacher-next-class-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500 text-white flex items-center gap-1.5 shadow-sm">
-                        UPCOMING (10:00 AM)
+                        UPCOMING
                       </span>
                     </div>
 
                     <div>
-                      <div class="text-3xl sm:text-4xl font-mono font-extrabold tracking-tight text-white">10:00 - 11:00</div>
-                      <div class="text-3xl sm:text-4xl font-black tracking-tight mt-1 text-white">Python Programming</div>
+                      <div id="teacher-next-class-time" class="text-3xl sm:text-4xl font-mono font-extrabold tracking-tight text-white">Loading...</div>
+                      <div id="teacher-next-class-subject" class="text-3xl sm:text-4xl font-black tracking-tight mt-1 text-white">Loading Schedule...</div>
                       <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-indigo-200 font-medium">
-                        <span class="bg-white/15 px-3 py-1 rounded-xl border border-white/10 font-bold">Class: IT-A</span>
-                        <span class="bg-white/15 px-3 py-1 rounded-xl border border-white/10 font-mono">Room: C204 (Smart Hall)</span>
-                        <span>Capacity: 65 Students</span>
+                        <span id="teacher-next-class-class" class="bg-white/15 px-3 py-1 rounded-xl border border-white/10 font-bold">Class: --</span>
+                        <span id="teacher-next-class-room" class="bg-white/15 px-3 py-1 rounded-xl border border-white/10 font-mono">Room: --</span>
+                        <span id="teacher-next-class-cap">Academic Session</span>
                       </div>
                     </div>
 
@@ -1674,7 +1674,7 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004 11a7.96 7.96 0 004.28 7.05"/></svg>
                         <span>CHECK IN NOW</span>
                       </button>
-                      <p id="teacher-checkin-time" class="text-center text-xs text-indigo-300 mt-2 font-medium">Tap to check-in when entering Room C204 (Broadcasts to HOD Live Board)</p>
+                      <p id="teacher-checkin-time" class="text-center text-xs text-indigo-300 mt-2 font-medium">Tap to check-in when entering assigned classroom (Broadcasts to HOD Live Board)</p>
                     </div>
                   </div>
 
@@ -1686,29 +1686,29 @@
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
                     <span class="text-[11px] font-bold text-slate-400 uppercase">Today's Total</span>
-                    <div class="text-2xl font-black text-slate-900 mt-1">4 Classes</div>
-                    <span class="text-[10px] text-slate-500">3 Theory • 1 Lab</span>
+                    <div id="teacher-metric-today-total" class="text-2xl font-black text-slate-900 mt-1">--</div>
+                    <span id="teacher-metric-today-sub" class="text-[10px] text-slate-500">Scheduled for today</span>
                   </div>
                   <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
                     <span class="text-[11px] font-bold text-slate-400 uppercase">Completed</span>
-                    <div class="text-2xl font-black text-emerald-600 mt-1">1 Class</div>
-                    <span class="text-[10px] text-emerald-600 font-semibold">✓ DBMS IT-A</span>
+                    <div id="teacher-metric-today-completed" class="text-2xl font-black text-emerald-600 mt-1">--</div>
+                    <span id="teacher-metric-today-completed-sub" class="text-[10px] text-emerald-600 font-semibold">Done today</span>
                   </div>
                   <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
                     <span class="text-[11px] font-bold text-slate-400 uppercase">Weekly Workload</span>
-                    <div class="text-2xl font-black text-indigo-700 mt-1">16 hrs</div>
+                    <div id="teacher-metric-weekly-workload" class="text-2xl font-black text-indigo-700 mt-1">16 hrs</div>
                     <span class="text-[10px] text-slate-500">Max limit: 18 hrs</span>
                   </div>
                   <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
                     <span class="text-[11px] font-bold text-slate-400 uppercase">Attendance Avg</span>
                     <div class="text-2xl font-black text-slate-900 mt-1">96.7%</div>
-                    <span class="text-[10px] text-slate-500">58/60 avg present</span>
+                    <span class="text-[10px] text-slate-500">Department avg</span>
                   </div>
                 </div>
 
               </div>
 
-              <!-- Right Column: TODAY's Schedule Timeline & Classroom IoT Status (lg:col-span-5) -->
+              <!-- Right Column: TODAY's Schedule Timeline (lg:col-span-5) -->
               <div class="lg:col-span-5 space-y-6">
 
                 <!-- TODAY'S SCHEDULE TIMELINE -->
@@ -1716,36 +1716,13 @@
                   <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div>
                       <h3 class="font-black text-base text-slate-900 tracking-tight">TODAY'S SCHEDULE</h3>
-                      <p class="text-xs text-slate-500">Friday • 4 Periods Scheduled</p>
+                      <p id="teacher-today-schedule-meta" class="text-xs text-slate-500">Scheduled Periods</p>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700">4 Classes</span>
+                    <span id="teacher-today-classes-count" class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700">--</span>
                   </div>
 
                   <!-- Dynamic Timeline list -->
                   <div id="teacher-timeline-list" class="space-y-2.5"></div>
-                </div>
-
-                <!-- Classroom Smart Amenities Card -->
-                <div class="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-3">
-                  <h4 class="font-bold text-xs uppercase tracking-wider text-slate-400">Room C204 Smart Amenities</h4>
-                  <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
-                      <span class="text-emerald-600 font-bold">✓</span>
-                      <span>Smart Projector Online</span>
-                    </div>
-                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
-                      <span class="text-emerald-600 font-bold">✓</span>
-                      <span>Audio PA System Active</span>
-                    </div>
-                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
-                      <span class="text-emerald-600 font-bold">✓</span>
-                      <span>Air Conditioning (23°C)</span>
-                    </div>
-                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2">
-                      <span class="text-emerald-600 font-bold">✓</span>
-                      <span>RFID Attendance Sensor</span>
-                    </div>
-                  </div>
                 </div>
 
               </div>
@@ -1767,46 +1744,8 @@
                 </button>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2">
-                  <div class="flex justify-between items-center">
-                    <span class="font-mono text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">09:00 - 10:00 AM</span>
-                    <span class="text-xs font-bold text-emerald-700">✓ COMPLETED</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 text-base">Database Management Systems (DBMS)</h4>
-                  <p class="text-xs text-slate-600">Batch: <strong>IT-A</strong> • Room: <strong>C205</strong> • Strength: 58/60 Attendance marked</p>
-                  <p class="text-xs text-slate-500 italic">Topic covered: Relational Algebra & Join Operations</p>
-                </div>
-
-                <div class="p-4 rounded-2xl border border-indigo-300 bg-indigo-50/40 space-y-2">
-                  <div class="flex justify-between items-center">
-                    <span class="font-mono text-xs font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded">10:00 - 11:00 AM</span>
-                    <span class="text-xs font-bold text-indigo-700">🟢 CURRENT SLOT</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 text-base">Python Programming & Scripting</h4>
-                  <p class="text-xs text-slate-600">Batch: <strong>IT-A</strong> • Room: <strong>C204</strong> • Enrolled: 60 Students</p>
-                  <p class="text-xs text-slate-500 italic">Topic: Object Oriented Classes, Inheritance & Polymorphism</p>
-                </div>
-
-                <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
-                  <div class="flex justify-between items-center">
-                    <span class="font-mono text-xs font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded">11:00 - 12:00 PM</span>
-                    <span class="text-xs font-bold text-slate-500">⚪ UPCOMING</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 text-base">Discrete Mathematics Tutorial</h4>
-                  <p class="text-xs text-slate-600">Batch: <strong>IT-C</strong> • Room: <strong>C206</strong> • Enrolled: 62 Students</p>
-                  <p class="text-xs text-slate-500 italic">Topic: Graph Coloring & Hamiltonian Paths</p>
-                </div>
-
-                <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
-                  <div class="flex justify-between items-center">
-                    <span class="font-mono text-xs font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded">12:00 - 01:00 PM</span>
-                    <span class="text-xs font-bold text-slate-500">⚪ UPCOMING</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 text-base">Python Practical Lab (Batch-1)</h4>
-                  <p class="text-xs text-slate-600">Batch: <strong>IT-A</strong> • Lab: <strong>Lab 1 (Cloud Lab)</strong> • 30 Systems</p>
-                  <p class="text-xs text-slate-500 italic">Lab Assignment 4: Flask Microservices and SQLite Integration</p>
-                </div>
+              <div id="teacher-all-today-classes" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamically rendered classes for today -->
               </div>
             </div>
           </div>
