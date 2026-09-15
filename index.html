@@ -833,22 +833,7 @@
                 </button>
               </div>
               <div id="admin-subjects-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                  <div class="flex justify-between items-start">
-                    <span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded">IT301</span>
-                    <span class="text-xs font-bold text-slate-500">5 hrs / week</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 mt-2">Python Programming & Scripting</h4>
-                  <p class="text-xs text-slate-500 mt-1">Theory (3 hrs) + Practical Lab (2 hrs continuous)</p>
-                </div>
-                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                  <div class="flex justify-between items-start">
-                    <span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded">IT302</span>
-                    <span class="text-xs font-bold text-slate-500">4 hrs / week</span>
-                  </div>
-                  <h4 class="font-bold text-slate-900 mt-2">Database Management Systems (DBMS)</h4>
-                  <p class="text-xs text-slate-500 mt-1">Theory (3 hrs) + SQL Tutorial (1 hr)</p>
-                </div>
+                <!-- Dynamically rendered via renderAdminSubjects() from stored data -->
               </div>
             </div>
           </div>
@@ -885,30 +870,7 @@
                 </button>
               </div>
               <div id="admin-rooms-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div class="flex justify-between items-start">
-                    <span class="font-bold text-slate-900">Room C204</span>
-                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
-                  </div>
-                  <p class="text-xs text-slate-500 mt-0.5">Smart Lecture Hall • Cap: 65</p>
-                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9716°N, 77.5946°E (±50m)</span>
-                </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div class="flex justify-between items-start">
-                    <span class="font-bold text-slate-900">Room C205</span>
-                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
-                  </div>
-                  <p class="text-xs text-slate-500 mt-0.5">Standard Lecture Hall • Cap: 60</p>
-                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9717°N, 77.5947°E (±50m)</span>
-                </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div class="flex justify-between items-start">
-                    <span class="font-bold text-slate-900">Lab 2 (AI Lab)</span>
-                    <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
-                  </div>
-                  <p class="text-xs text-slate-500 mt-0.5">50 High-End Workstations</p>
-                  <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 12.9721°N, 77.5951°E (±60m)</span>
-                </div>
+                <!-- Dynamically rendered via renderAdminRooms() from stored data -->
               </div>
             </div>
           </div>
@@ -927,10 +889,6 @@
                     <span class="text-slate-500 font-semibold">Class:</span>
                     <select id="tt-filter-section" onchange="renderAdminTimetable()" class="bg-transparent font-bold text-slate-800 outline-hidden">
                       <option value="ALL">All Classes</option>
-                      <option value="IT-A">IT-A</option>
-                      <option value="IT-B">IT-B</option>
-                      <option value="IT-C">IT-C</option>
-                      <option value="IT-D">IT-D</option>
                     </select>
                   </div>
                   <!-- Day Filter -->
@@ -2291,8 +2249,8 @@
 
       <form id="form-add-batch" onsubmit="handleAdminAddBatch(event)" class="space-y-3.5 pt-3 text-xs">
         <div>
-          <label class="block font-bold text-slate-700 mb-1">Class / Section Name (e.g., IT-A, CSE-B)</label>
-          <input id="new-batch-name" type="text" placeholder="IT-E" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+          <label class="block font-bold text-slate-700 mb-1">Class / Section Name (e.g., C04, IT-A, CSE-B)</label>
+          <input id="new-batch-name" type="text" placeholder="e.g. C04, IT-A" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -2324,8 +2282,14 @@
         </div>
 
         <div>
-          <label class="block font-bold text-slate-700 mb-1">Assigned Base Room</label>
-          <input id="new-batch-room" type="text" placeholder="Room C204" value="Room C204" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block font-bold text-slate-700">Assigned Base Room</label>
+            <span class="text-[10px] text-indigo-600 font-semibold">From Infrastructure</span>
+          </div>
+          <select id="new-batch-room" class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+            <option value="Room C204">Room C204 (Default)</option>
+          </select>
+          <p class="text-[10px] text-slate-400 mt-1">Classrooms & Labs added in Infrastructure appear here automatically.</p>
         </div>
 
         <div class="pt-3 flex justify-end gap-2">
@@ -2364,7 +2328,9 @@
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Section / Batch</label>
-            <input id="manual-tt-section" type="text" placeholder="IT-A" value="IT-A" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+            <select id="manual-tt-section" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-bold uppercase">
+              <option value="">-- Select Class / Batch --</option>
+            </select>
           </div>
         </div>
 
@@ -2383,18 +2349,24 @@
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Classroom / Lab</label>
-            <input id="manual-tt-room" type="text" placeholder="C204" value="C204" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 uppercase">
+            <select id="manual-tt-room" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-semibold">
+              <option value="">-- Select Classroom / Lab --</option>
+            </select>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-bold text-slate-700 mb-1">Subject Name or Code</label>
-            <input id="manual-tt-subject" type="text" placeholder="Python (IT301)" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+            <select id="manual-tt-subject" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+              <option value="">-- Select Subject --</option>
+            </select>
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Assigned Teacher</label>
-            <input id="manual-tt-teacher" type="text" placeholder="Arun Kumar" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+            <select id="manual-tt-teacher" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+              <option value="">-- Select Teacher --</option>
+            </select>
           </div>
         </div>
 
@@ -2423,19 +2395,23 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-bold text-slate-700 mb-1">Faculty / Teacher</label>
-            <input id="map-teacher" type="text" placeholder="Arun Kumar" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+            <select id="map-teacher" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+              <option value="">-- Select Teacher --</option>
+            </select>
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Subject Name & Code</label>
-            <input id="map-subject" type="text" placeholder="Python (IT301)" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium">
+            <select id="map-subject" required class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+              <option value="">-- Select Subject --</option>
+            </select>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-bold text-slate-700 mb-1">Assigned Classes (Comma separated)</label>
-            <input id="map-sections" type="text" placeholder="IT-A, IT-B" value="IT-A, IT-B" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
-            <span class="text-[10px] text-slate-400">e.g. IT-A, IT-B (Teacher handles both)</span>
+            <input id="map-sections" type="text" placeholder="e.g. C04, IT-A" required class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold uppercase">
+            <span class="text-[10px] text-slate-400">e.g. C04, IT-A (Teacher handles both)</span>
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Course Format</label>
@@ -2454,7 +2430,9 @@
           </div>
           <div>
             <label class="block font-bold text-slate-700 mb-1">Default Room (Optional)</label>
-            <input id="map-room" type="text" placeholder="Auto-assign" class="w-full border border-slate-200 rounded-xl p-2.5 text-slate-800 uppercase">
+            <select id="map-room" class="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 text-slate-800 font-medium">
+              <option value="">Auto-assign</option>
+            </select>
           </div>
         </div>
 

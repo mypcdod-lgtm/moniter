@@ -1,13 +1,14 @@
 // MyMonitorXX - Core Application Logic, Authentication & RBAC
 
 // Initial State Data
+// Initial State Data - Clean Baseline with Real Administrator (No Mock Data)
 const DEFAULT_STATE = {
   currentUser: null, // null = show login screen
   activeRole: 'admin', // 'admin', 'hod', 'teacher'
   mobileFrame: false,
   teacherCheckedIn: false,
 
-  // User Accounts Directory (Authentication & RBAC)
+  // User Accounts Directory (Authentication & RBAC) - Administrator Account
   users: [
     {
       id: 'usr-admin-1',
@@ -17,30 +18,10 @@ const DEFAULT_STATE = {
       password: '123BALASELVARAJA123',
       role: 'admin',
       dept: 'Central Campus Administration'
-    },
-    {
-      id: 'usr-hod-1',
-      name: 'Dr. Ramesh Babu',
-      email: 'hod.it@college.edu',
-      password: 'hodpassword123',
-      role: 'hod',
-      dept: 'Information Technology'
-    },
-    {
-      id: 'usr-teacher-1',
-      name: 'Arun Kumar',
-      email: 'arun@college.edu',
-      password: 'teacherpass123',
-      role: 'teacher',
-      dept: 'Information Technology',
-      subject: 'Python'
     }
   ],
 
-  hodsList: [
-    { id: 1, name: 'Dr. Ramesh Babu', email: 'hod.it@college.edu', dept: 'Information Technology', roomsManaged: 'Block C (6 Halls)', assignedFaculty: 14, status: 'Active' },
-    { id: 2, name: 'Dr. Sunitha Verma', email: 'sunitha.hod@college.edu', dept: 'Computer Science', roomsManaged: 'Block B (8 Halls)', assignedFaculty: 18, status: 'Active' }
-  ],
+  hodsList: [],
 
   hodStats: {
     totalClasses: 0,
@@ -50,61 +31,14 @@ const DEFAULT_STATE = {
     substitute: 0
   },
 
-  liveMonitoring: [
-    { id: 1, class: 'IT-A', subject: 'Python', teacher: 'Arun', room: 'C204', status: 'ACTIVE', time: '10:00 - 11:00', substituteTeacher: null },
-    { id: 2, class: 'IT-B', subject: 'DBMS', teacher: 'Kumar', room: 'C205', status: 'SCHEDULED', time: '11:00 - 12:00', substituteTeacher: null },
-    { id: 3, class: 'IT-C', subject: 'Maths', teacher: 'Priya', room: 'C206', status: 'VACANT', time: '10:00 - 11:00', substituteTeacher: null },
-    { id: 4, class: 'IT-D', subject: 'Java', teacher: 'Suresh', room: 'C207', status: 'SUBSTITUTE', time: '10:00 - 11:00', substituteTeacher: 'Rajesh' },
-    { id: 5, class: 'IT-A', subject: 'Computer Networks', teacher: 'Vikram', room: 'C208', status: 'ACTIVE', time: '10:00 - 11:00', substituteTeacher: null },
-    { id: 6, class: 'IT-B', subject: 'Web Technologies', teacher: 'Sneha', room: 'Lab 2', status: 'SCHEDULED', time: '11:00 - 13:00', substituteTeacher: null },
-    { id: 7, class: 'IT-C', subject: 'Operating Systems', teacher: 'Kavitha', room: 'C209', status: 'ACTIVE', time: '10:00 - 11:00', substituteTeacher: null },
-    { id: 8, class: 'IT-D', subject: 'Data Structures', teacher: 'Manoj', room: 'C210', status: 'VACANT', time: '10:00 - 11:00', substituteTeacher: null }
-  ],
-
-  availableSubstitutes: [
-    { id: 'sub-1', name: 'Dr. Rajesh', dept: 'Information Technology', freePeriods: 'Period 3 & 4 (10:00 - 12:00)', specialization: 'Maths & Algorithms' },
-    { id: 'sub-2', name: 'Prof. Anitha', dept: 'Information Technology', freePeriods: 'Period 3 (10:00 - 11:00)', specialization: 'Data Structures' },
-    { id: 'sub-3', name: 'Dr. Meenakshi', dept: 'Computer Science', freePeriods: 'Period 3 & 5 (10:00 - 11:00, 1:00 - 2:00)', specialization: 'Programming Languages' }
-  ],
-
-  teachersList: [
-    { id: 1, name: 'Arun Kumar', email: 'arun@college.edu', subject: 'Python & AI', dept: 'IT', workload: '16 hrs/wk', status: 'Available' },
-    { id: 2, name: 'Kumar Swamy', email: 'kumar@college.edu', subject: 'DBMS', dept: 'IT', workload: '18 hrs/wk', status: 'In Class' },
-    { id: 3, name: 'Priya Sharma', email: 'priya@college.edu', subject: 'Applied Maths', dept: 'IT', workload: '14 hrs/wk', status: 'On Leave' },
-    { id: 4, name: 'Suresh Raina', email: 'suresh@college.edu', subject: 'Java & OOP', dept: 'IT', workload: '16 hrs/wk', status: 'In Class' },
-    { id: 5, name: 'Sneha Rao', email: 'sneha@college.edu', subject: 'Web Tech', dept: 'IT', workload: '15 hrs/wk', status: 'Available' },
-    { id: 6, name: 'Vikram Singh', email: 'vikram@college.edu', subject: 'Networks', dept: 'IT', workload: '18 hrs/wk', status: 'In Class' }
-  ],
-
-  subjectsList: [
-    { code: 'IT301', name: 'Python Programming', type: 'Theory + Lab', weeklyHours: 5, dept: 'IT' },
-    { code: 'IT302', name: 'Database Management Systems', type: 'Theory', weeklyHours: 4, dept: 'IT' },
-    { code: 'MA301', name: 'Discrete Mathematics', type: 'Theory', weeklyHours: 4, dept: 'All' },
-    { code: 'IT303', name: 'Object Oriented Java', type: 'Theory + Lab', weeklyHours: 5, dept: 'IT' },
-    { code: 'IT304', name: 'Computer Networks', type: 'Theory', weeklyHours: 4, dept: 'IT' }
-  ],
-
-  classroomsList: [
-    { room: 'C204', type: 'Smart Lecture Hall', capacity: 65, block: 'Academic Block C' },
-    { room: 'C205', type: 'Lecture Hall', capacity: 60, block: 'Academic Block C' },
-    { room: 'C206', type: 'Lecture Hall', capacity: 60, block: 'Academic Block C' },
-    { room: 'C207', type: 'Smart Lecture Hall', capacity: 70, block: 'Academic Block C' },
-    { room: 'Lab 1', type: 'Cloud & Web Lab', capacity: 45, block: 'IT Lab Complex' },
-    { room: 'Lab 2', type: 'AI & Data Science Lab', capacity: 50, block: 'IT Lab Complex' }
-  ],
-
-  timetableVersions: [
-    { version: 'v3.2', status: 'ACTIVE', term: 'Odd Semester 2026-27', appliedAt: '10 Sep 2026', generatedBy: 'AI Scheduler v2' },
-    { version: 'v3.1', status: 'ARCHIVED', term: 'Odd Semester 2026-27', appliedAt: '01 Sep 2026', generatedBy: 'Admin Manual' },
-    { version: 'v3.0', status: 'DRAFT', term: 'Odd Semester 2026-27', appliedAt: '25 Aug 2026', generatedBy: 'AI Scheduler v2' }
-  ],
-
-  studentBatches: [
-    { id: 'batch-1', name: 'IT-A', strength: 60, sem: 'Sem 3', baseRoom: 'Room C204' },
-    { id: 'batch-2', name: 'IT-B', strength: 58, sem: 'Sem 3', baseRoom: 'Room C205' },
-    { id: 'batch-3', name: 'IT-C', strength: 62, sem: 'Sem 3', baseRoom: 'Room C206' },
-    { id: 'batch-4', name: 'IT-D', strength: 59, sem: 'Sem 3', baseRoom: 'Room C207' }
-  ],
+  liveMonitoring: [],
+  availableSubstitutes: [],
+  teachersList: [],
+  subjectsList: [],
+  classroomsList: [],
+  rooms: [],
+  timetableVersions: [],
+  studentBatches: [],
 
   // Exact College Bell Schedule (7 Periods of 50m + Morning Break 20m + Lunch Break 50m)
   collegeBellSchedule: [
@@ -119,59 +53,16 @@ const DEFAULT_STATE = {
     { period: 7, name: 'Period 7', time: '03:10 - 04:00', isBreak: false }
   ],
 
-  // Faculty, Subject & Multi-Class Mappings with Weekly Periods Quota
-  // Example: Arun Kumar teaches Python to both IT-A and IT-B (6 periods/week each)
-  subjectTeacherMappings: [
-    { id: 'map-1', teacher: 'Arun Kumar', subject: 'Python (IT301)', type: 'Theory', sections: ['IT-A', 'IT-B'], quota: 6, room: 'C204' },
-    { id: 'map-2', teacher: 'Kumar Swamy', subject: 'DBMS (IT302)', type: 'Theory', sections: ['IT-A', 'IT-B'], quota: 5, room: 'C205' },
-    { id: 'map-3', teacher: 'Priya Sharma', subject: 'Applied Maths (MA301)', type: 'Theory', sections: ['IT-A', 'IT-B', 'IT-C'], quota: 5, room: 'C206' },
-    { id: 'map-4', teacher: 'Suresh Raina', subject: 'Java & OOP (IT303)', type: 'Theory', sections: ['IT-A', 'IT-B'], quota: 5, room: 'C207' },
-    { id: 'map-5', teacher: 'Sneha Rao', subject: 'Web Technologies (IT304)', type: 'Theory', sections: ['IT-A', 'IT-B'], quota: 4, room: 'C204' },
-    { id: 'map-6', teacher: 'Arun Kumar', subject: 'Python Lab', type: 'Lab', sections: ['IT-A', 'IT-B'], quota: 4, room: 'Lab 2' },
-    { id: 'map-7', teacher: 'Kumar Swamy', subject: 'DBMS Lab', type: 'Lab', sections: ['IT-A', 'IT-B'], quota: 4, room: 'Lab 1' }
-  ],
-
-  masterTimetableSlots: [
-    { id: 'slot-1', day: 'Monday', section: 'IT-A', p1: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p2: 'Python (Arun • C204)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C204)' },
-    { id: 'slot-2', day: 'Monday', section: 'IT-B', p1: 'Python (Arun • C205)', p2: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p3: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p4: 'Naan Mudhalvan (Skill Faculty • Smart Hall)', p5: 'DBMS Lab (Kumar • Lab 1)', p6: 'DBMS Lab (Kumar • Lab 1)', p7: 'Library / Seminar' },
-    { id: 'slot-3', day: 'Tuesday', section: 'IT-A', p1: 'Python (Arun • C204)', p2: 'Web Tech (Sneha • C204)', p3: 'Java (Suresh • C204)', p4: 'Maths (Priya • C204)', p5: 'DBMS (Kumar • C204)', p6: 'Sports / Club', p7: 'Library' },
-    { id: 'slot-4', day: 'Tuesday', section: 'IT-B', p1: 'Java (Suresh • C205)', p2: 'Python (Arun • C205)', p3: 'DBMS (Kumar • C205)', p4: 'Maths (Priya • C205)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Web Tech (Sneha • C205)' },
-    { id: 'slot-5', day: 'Wednesday', section: 'IT-A', p1: 'Python (Arun • C204)', p2: 'DBMS (Kumar • C204)', p3: 'Maths (Priya • C204)', p4: 'Java (Suresh • C204)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Mentoring' },
-    { id: 'slot-6', day: 'Wednesday', section: 'IT-B', p1: 'DBMS (Kumar • C205)', p2: 'Java (Suresh • C205)', p3: 'Python (Arun • C205)', p4: 'Web Tech (Sneha • C205)', p5: 'Maths (Priya • C205)', p6: 'Sports', p7: 'Library' },
-    { id: 'slot-7', day: 'Thursday', section: 'IT-A', p1: 'Java (Suresh • C204)', p2: 'Maths (Priya • C204)', p3: 'Python (Arun • C204)', p4: 'DBMS (Kumar • C204)', p5: 'DBMS Lab (Kumar • Lab 1)', p6: 'DBMS Lab (Kumar • Lab 1)', p7: 'Seminar' },
-    { id: 'slot-8', day: 'Thursday', section: 'IT-B', p1: 'Python (Arun • C205)', p2: 'DBMS (Kumar • C205)', p3: 'Java (Suresh • C205)', p4: 'Maths (Priya • C205)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Library' },
-    { id: 'slot-9', day: 'Friday', section: 'IT-A', p1: 'DBMS (Kumar • C204)', p2: 'Python (Arun • C204)', p3: 'Web Tech (Sneha • C204)', p4: 'Maths (Priya • C204)', p5: 'Python Lab (Arun • Lab 2)', p6: 'Python Lab (Arun • Lab 2)', p7: 'Placement Prep' },
-    { id: 'slot-10', day: 'Friday', section: 'IT-B', p1: 'Web Tech (Sneha • C205)', p2: 'Java (Suresh • C205)', p3: 'DBMS (Kumar • C205)', p4: 'Python (Arun • C205)', p5: 'Maths (Priya • C205)', p6: 'Placement Prep', p7: 'Sports' }
-  ],
-
-  teacherTodayClasses: [
-    { time: '09:00 - 09:50', subject: 'Python Programming', class: 'IT-A', room: 'C204', status: 'Completed', note: 'Attendance recorded' },
-    { time: '09:50 - 10:40', subject: 'Python Programming', class: 'IT-B', room: 'C205', status: 'Completed', note: 'Attendance recorded' },
-    { time: '11:00 - 11:50', subject: 'Python Tutorial', class: 'IT-A', room: 'C204', status: 'Completed', note: 'Problem Solving' },
-    { time: '01:30 - 02:20', subject: 'Python Lab', class: 'IT-A', room: 'Lab 2', status: 'Upcoming', note: 'Practical Session' },
-    { time: '02:20 - 03:10', subject: 'Python Lab', class: 'IT-A', room: 'Lab 2', status: 'Upcoming', note: 'Practical Session' }
-  ],
-
-  leavesList: [
-    {
-      id: 'leave-sample-1',
-      teacher_name: 'Arun Kumar',
-      teacher_email: 'arun@college.edu',
-      date: new Date().toISOString().split('T')[0],
-      periods: [1, 2, 3],
-      reason: 'Medical checkup & fever',
-      department: 'Information Technology',
-      status: 'pending',
-      substitute_teacher: null,
-      created_at: new Date().toISOString()
-    }
-  ]
+  subjectTeacherMappings: [],
+  masterTimetableSlots: [],
+  teacherTodayClasses: [],
+  leavesList: []
 };
 
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
 let appState = JSON.parse(localStorage.getItem('mymonitor_state') || localStorage.getItem('mymoniter_state')) || DEFAULT_STATE;
 
-// Ensure default users and admin credentials always exist without wiping custom HODs or Teachers
+// Ensure admin credentials always exist without wiping custom HODs or Teachers
 if (!appState.users || !Array.isArray(appState.users)) {
   appState.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
 } else {
@@ -181,20 +72,51 @@ if (!appState.users || !Array.isArray(appState.users)) {
     }
   });
 }
-if (!appState.studentBatches) {
-  appState.studentBatches = DEFAULT_STATE.studentBatches;
-}
-if (!appState.subjectTeacherMappings || appState.subjectTeacherMappings.length === 0) {
-  appState.subjectTeacherMappings = DEFAULT_STATE.subjectTeacherMappings;
-}
-if (!appState.masterTimetableSlots || appState.masterTimetableSlots.length < 5 || !appState.masterTimetableSlots[0]?.p7) {
-  appState.masterTimetableSlots = DEFAULT_STATE.masterTimetableSlots;
-}
-if (!appState.collegeBellSchedule) {
-  appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
-}
-if (!appState.leavesList || !Array.isArray(appState.leavesList)) {
-  appState.leavesList = DEFAULT_STATE.leavesList || [];
+
+// Ensure proper array structures
+if (!Array.isArray(appState.classroomsList)) appState.classroomsList = [];
+if (!Array.isArray(appState.rooms)) appState.rooms = appState.classroomsList;
+if (!Array.isArray(appState.studentBatches)) appState.studentBatches = [];
+if (!Array.isArray(appState.subjectsList)) appState.subjectsList = [];
+if (!Array.isArray(appState.teachersList)) appState.teachersList = [];
+if (!Array.isArray(appState.hodsList)) appState.hodsList = [];
+if (!Array.isArray(appState.subjectTeacherMappings)) appState.subjectTeacherMappings = [];
+if (!Array.isArray(appState.masterTimetableSlots)) appState.masterTimetableSlots = [];
+if (!Array.isArray(appState.liveMonitoring)) appState.liveMonitoring = [];
+if (!Array.isArray(appState.leavesList)) appState.leavesList = [];
+if (!appState.collegeBellSchedule) appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
+
+// Automatic Cleanup of Legacy Mock Data (Removes mock items so only user-stored data is displayed)
+if (!appState._cleanDataV21) {
+  const legacyMockEmails = ['arun@college.edu', 'kumar@college.edu', 'priya@college.edu', 'suresh@college.edu', 'sneha@college.edu', 'vikram@college.edu', 'hod.it@college.edu', 'sunitha.hod@college.edu'];
+  const legacyMockSubjCodes = ['IT301', 'IT302', 'MA301', 'IT303', 'IT304'];
+  const legacyMockBatchIds = ['batch-1', 'batch-2', 'batch-3', 'batch-4'];
+
+  appState.users = appState.users.filter(u => !legacyMockEmails.includes((u.email || '').toLowerCase()) && u.id !== 'usr-hod-1' && u.id !== 'usr-teacher-1');
+  appState.hodsList = appState.hodsList.filter(h => !legacyMockEmails.includes((h.email || '').toLowerCase()));
+  appState.teachersList = appState.teachersList.filter(t => !legacyMockEmails.includes((t.email || '').toLowerCase()));
+
+  if (appState.subjectsList.length > 0 && appState.subjectsList.every(s => legacyMockSubjCodes.includes(s.code))) {
+    appState.subjectsList = [];
+  }
+  if (appState.studentBatches.length > 0 && appState.studentBatches.every(b => legacyMockBatchIds.includes(b.id))) {
+    appState.studentBatches = [];
+  }
+  if (appState.classroomsList.length > 0 && (appState.classroomsList.some(r => r.room === 'C204' && !r.latitude) || (appState.classroomsList.length === 6 && appState.classroomsList.some(r => r.room === 'C204')))) {
+    appState.classroomsList = [];
+    appState.rooms = [];
+  }
+  if (appState.subjectTeacherMappings.length > 0 && appState.subjectTeacherMappings.some(m => m.id === 'map-1')) {
+    appState.subjectTeacherMappings = [];
+  }
+  if (appState.masterTimetableSlots.length > 0 && appState.masterTimetableSlots.some(s => s.id === 'slot-1')) {
+    appState.masterTimetableSlots = [];
+  }
+  appState.leavesList = appState.leavesList.filter(l => l.id !== 'leave-sample-1');
+  if (appState.liveMonitoring.length > 0 && appState.liveMonitoring.some(m => m.class === 'IT-A' && m.subject === 'Python')) {
+    appState.liveMonitoring = [];
+  }
+  appState._cleanDataV21 = true;
 }
 
 let cloudSaveTimer = null;
@@ -779,6 +701,22 @@ function switchAdminTab(tabId) {
     activeLink.classList.add('bg-indigo-50', 'text-indigo-700', 'font-semibold');
     activeLink.classList.remove('text-slate-600');
   });
+
+  // Dynamically render active tab content from stored data
+  if (tabId === 'classrooms') {
+    renderAdminRooms();
+  } else if (tabId === 'classes') {
+    renderAdminBatches();
+  } else if (tabId === 'subjects') {
+    renderAdminSubjects();
+  } else if (tabId === 'hods' || tabId === 'teachers' || tabId === 'versions') {
+    renderAdminTables();
+  } else if (tabId === 'current-timetable') {
+    renderAdminTimetable();
+  } else if (tabId === 'curriculum') {
+    renderAdminSubjects();
+    renderSubjectMappings();
+  }
 
   closeAdminDrawer();
 }
@@ -2538,62 +2476,72 @@ function renderAdminTables() {
   const hodTable = document.getElementById('admin-hods-tbody');
   if (hodTable) {
     hodTable.innerHTML = '';
-    appState.hodsList.forEach(h => {
-      const tr = document.createElement('tr');
-      tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
-      const depts = (h.departments && h.departments.length > 0) ? h.departments : (h.dept ? h.dept.split(' & ') : ['Information Technology']);
-      const deptBadges = depts.map(d => `<span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${d}</span>`).join(' ');
+    const hods = appState.hodsList || [];
+    if (hods.length === 0) {
+      hodTable.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 text-xs font-medium">No HOD accounts registered yet. Click "+ Add HOD" to onboard department leadership.</td></tr>';
+    } else {
+      hods.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
+        const depts = (h.departments && h.departments.length > 0) ? h.departments : (h.dept ? h.dept.split(' & ') : ['Information Technology']);
+        const deptBadges = depts.map(d => `<span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${d}</span>`).join(' ');
 
-      tr.innerHTML = `
-        <td class="py-3 px-4 font-bold text-slate-800">${h.name}</td>
-        <td class="py-3 px-4 font-mono text-xs text-indigo-600 font-semibold">${h.email}</td>
-        <td class="py-3 px-4 text-slate-700 font-medium">
-          <div class="flex flex-wrap gap-1 items-center">
-            ${deptBadges}
-          </div>
-        </td>
-        <td class="py-3 px-4 text-slate-500">${h.roomsManaged}</td>
-        <td class="py-3 px-4">
-          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-            ${h.status}
-          </span>
-        </td>
-        <td class="py-3 px-4 text-right">
-          <button onclick="handleDeleteHod('${h.id}', '${h.email}', '${h.name}')" title="Delete HOD" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </td>
-      `;
-      hodTable.appendChild(tr);
-    });
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-800">${h.name}</td>
+          <td class="py-3 px-4 font-mono text-xs text-indigo-600 font-semibold">${h.email}</td>
+          <td class="py-3 px-4 text-slate-700 font-medium">
+            <div class="flex flex-wrap gap-1 items-center">
+              ${deptBadges}
+            </div>
+          </td>
+          <td class="py-3 px-4 text-slate-500">${h.roomsManaged}</td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+              ${h.status}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="handleDeleteHod('${h.id}', '${h.email}', '${h.name}')" title="Delete HOD" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </td>
+        `;
+        hodTable.appendChild(tr);
+      });
+    }
   }
 
   // Teachers Table (Admin View)
   const tTable = document.getElementById('admin-teachers-tbody');
   if (tTable) {
     tTable.innerHTML = '';
-    appState.teachersList.forEach(t => {
-      const tr = document.createElement('tr');
-      tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
-      tr.innerHTML = `
-        <td class="py-3 px-4 font-bold text-slate-800">${t.name}</td>
-        <td class="py-3 px-4 text-slate-600 font-mono text-xs">${t.email}</td>
-        <td class="py-3 px-4 text-slate-800 font-medium">${t.subject}</td>
-        <td class="py-3 px-4 text-slate-600">${t.dept}</td>
-        <td class="py-3 px-4 text-slate-600">${t.workload}</td>
-        <td class="py-3 px-4">
-          <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${t.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : (t.status === 'In Class' ? 'bg-indigo-100 text-indigo-800' : 'bg-rose-100 text-rose-800')}">
-            ${t.status}
-          </span>
-        </td>
-        <td class="py-3 px-4 text-right">
-          <button onclick="handleDeleteTeacher('${t.id}', '${t.name}')" title="Delete Faculty" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </td>
-      `;
-      tTable.appendChild(tr);
-    });
+    const teachers = appState.teachersList || [];
+    if (teachers.length === 0) {
+      tTable.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs font-medium">No faculty teachers registered yet. Click "+ Add Teacher" to onboard teaching faculty.</td></tr>';
+    } else {
+      teachers.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-800">${t.name}</td>
+          <td class="py-3 px-4 text-slate-600 font-mono text-xs">${t.email}</td>
+          <td class="py-3 px-4 text-slate-800 font-medium">${t.subject}</td>
+          <td class="py-3 px-4 text-slate-600">${t.dept}</td>
+          <td class="py-3 px-4 text-slate-600">${t.workload}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${t.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : (t.status === 'In Class' ? 'bg-indigo-100 text-indigo-800' : 'bg-rose-100 text-rose-800')}">
+              ${t.status}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="handleDeleteTeacher('${t.id}', '${t.name}')" title="Delete Faculty" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </td>
+        `;
+        tTable.appendChild(tr);
+      });
+    }
   }
 
   // Timetable Versions Table & Version Cards
@@ -2712,7 +2660,19 @@ function renderHodTeachers() {
   const container = document.getElementById('hod-teachers-cards-container');
   if (!container) return;
   container.innerHTML = '';
-  appState.teachersList.forEach(t => {
+  const teachers = appState.teachersList || [];
+
+  if (teachers.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+        <p class="font-bold text-xs text-slate-600">No Department Teachers Added</p>
+        <p class="text-[11px] mt-0.5">Click "+ Add Teacher" to assign faculty to this department.</p>
+      </div>
+    `;
+    return;
+  }
+
+  teachers.forEach(t => {
     const card = document.createElement('div');
     card.className = 'p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs';
     card.innerHTML = `
@@ -2741,7 +2701,7 @@ function openModal(modalId) {
   if (modalId === 'modal-teacher-leave') {
     const teacherNameInput = document.getElementById('leave-teacher-name');
     if (teacherNameInput) {
-      teacherNameInput.value = appState.currentUser?.name || 'Arun Kumar';
+      teacherNameInput.value = appState.currentUser?.name || 'Faculty';
     }
     const dateInput = document.getElementById('leave-date');
     if (dateInput && !dateInput.value) {
@@ -2754,6 +2714,12 @@ function openModal(modalId) {
   if (modalId === 'modal-add-hod') {
     if (typeof handleHodDeptSelectionLimit === 'function') {
       handleHodDeptSelectionLimit(null);
+    }
+  }
+
+  if (modalId === 'modal-add-batch' || modalId === 'modal-manual-timetable' || modalId === 'modal-add-subject-mapping') {
+    if (typeof updateAllSelectDropdowns === 'function') {
+      updateAllSelectDropdowns();
     }
   }
 }
@@ -2921,29 +2887,48 @@ async function handleAdminAddSubject(e) {
   const name = document.getElementById('new-subj-name').value.trim();
   const type = document.getElementById('new-subj-type').value;
   const hours = parseInt(document.getElementById('new-subj-hours').value) || 4;
-  const dept = document.getElementById('new-subj-dept').value.trim();
+  const dept = document.getElementById('new-subj-dept').value.trim() || 'Information Technology';
   const sem = parseInt(document.getElementById('new-subj-sem').value) || 3;
 
-  try {
-    if (window.ApiClient) {
-      await ApiClient.createSubject({
-        code,
-        name,
-        type,
-        weekly_hours: hours,
-        department: dept,
-        semester: sem
-      });
-    }
+  if (!code || !name) {
+    showToast('Subject Code and Subject Name are required.', 'error');
+    return;
+  }
 
-    closeModal('modal-add-subject');
-    showToast(`Subject ${code} - ${name} registered for timetable scheduling!`, 'success');
-    e.target.reset();
-    syncWithBackend();
-  } catch (err) {
-    console.warn('Backend createSubject fallback:', err.message);
-    closeModal('modal-add-subject');
-    showToast(`Subject ${code} added!`, 'success');
+  appState.subjectsList = appState.subjectsList || [];
+  if (appState.subjectsList.some(s => s.code && s.code.toUpperCase() === code)) {
+    showToast(`Subject with code ${code} already exists.`, 'error');
+    return;
+  }
+
+  const newSubj = {
+    id: 'subj-' + Date.now(),
+    code,
+    name,
+    type,
+    weeklyHours: hours,
+    dept,
+    semester: sem
+  };
+
+  appState.subjectsList.push(newSubj);
+  saveState();
+  renderAdminSubjects();
+  if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
+
+  closeModal('modal-add-subject');
+  showToast(`Subject ${code} - ${name} registered successfully!`, 'success');
+  e.target.reset();
+
+  if (window.ApiClient) {
+    ApiClient.createSubject({
+      code,
+      name,
+      type,
+      weekly_hours: hours,
+      department: dept,
+      semester: sem
+    }).catch(err => console.warn('Backend createSubject fallback:', err.message));
   }
 }
 
@@ -2953,33 +2938,57 @@ async function handleAdminAddRoom(e) {
   const room_code = document.getElementById('new-room-code').value.trim().toUpperCase();
   const capacity = parseInt(document.getElementById('new-room-capacity').value) || 60;
   const type = document.getElementById('new-room-type').value;
-  const block = document.getElementById('new-room-block').value.trim();
+  const block = document.getElementById('new-room-block').value.trim() || 'Academic Block C';
   const lat = parseFloat(document.getElementById('new-room-lat').value) || 12.9716;
   const lon = parseFloat(document.getElementById('new-room-lon').value) || 77.5946;
   const radius = parseFloat(document.getElementById('new-room-radius').value) || 60.0;
 
-  try {
-    if (window.ApiClient) {
-      await ApiClient.createRoom({
-        room_code,
-        capacity,
-        type,
-        block,
-        department: 'Information Technology',
-        latitude: lat,
-        longitude: lon,
-        geo_radius_meters: radius
-      });
-    }
+  if (!room_code) {
+    showToast('Room Code or Number is required.', 'error');
+    return;
+  }
 
-    closeModal('modal-add-room');
-    showToast(`Classroom ${room_code} configured with GPS Geofence (±${radius}m)!`, 'success');
-    e.target.reset();
-    syncWithBackend();
-  } catch (err) {
-    console.warn('Backend createRoom fallback:', err.message);
-    closeModal('modal-add-room');
-    showToast(`Classroom ${room_code} added!`, 'success');
+  appState.classroomsList = appState.classroomsList || [];
+  if (appState.classroomsList.some(r => r.room && r.room.toUpperCase() === room_code)) {
+    showToast(`Classroom / Lab ${room_code} already exists.`, 'error');
+    return;
+  }
+
+  const newRoom = {
+    id: 'room-' + Date.now(),
+    room: room_code,
+    type: type || 'Lecture Hall',
+    capacity: capacity,
+    block: block,
+    latitude: lat,
+    longitude: lon,
+    radius: radius,
+    geo_radius_meters: radius,
+    department: 'Information Technology',
+    status: 'Active'
+  };
+
+  appState.classroomsList.push(newRoom);
+  appState.rooms = appState.classroomsList;
+  saveState();
+  renderAdminRooms();
+  if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
+
+  closeModal('modal-add-room');
+  showToast(`Classroom / Lab ${room_code} added with GPS Geofence (±${radius}m)!`, 'success');
+  e.target.reset();
+
+  if (window.ApiClient) {
+    ApiClient.createRoom({
+      room_code,
+      capacity,
+      type,
+      block,
+      department: 'Information Technology',
+      latitude: lat,
+      longitude: lon,
+      geo_radius_meters: radius
+    }).catch(err => console.warn('Backend createRoom fallback:', err.message));
   }
 }
 
@@ -3024,9 +3033,11 @@ async function handleDeleteSubject(subjectId, subjectCode) {
 async function handleDeleteRoom(roomId, roomCode) {
   if (!confirm(`Are you sure you want to delete classroom ${roomCode}?`)) return;
 
-  appState.classroomsList = appState.classroomsList.filter(r => (r.id !== roomId && r.room !== roomCode));
+  appState.classroomsList = (appState.classroomsList || []).filter(r => (r.id !== roomId && r.room !== roomCode));
+  appState.rooms = appState.classroomsList;
   saveState();
   renderAdminRooms();
+  updateAllSelectDropdowns();
   showToast(`Classroom ${roomCode} deleted.`, 'info');
 
   if (window.ApiClient && roomId) {
@@ -3043,14 +3054,15 @@ async function handleDeleteRoom(roomId, roomCode) {
 async function handleDeleteTeacher(teacherId, teacherName) {
   if (!confirm(`Are you sure you want to delete teacher ${teacherName}?`)) return;
 
-  const target = appState.teachersList.find(t => String(t.id) === String(teacherId) || t.name === teacherName);
-  appState.teachersList = appState.teachersList.filter(t => String(t.id) !== String(teacherId) && t.name !== teacherName);
+  const target = (appState.teachersList || []).find(t => String(t.id) === String(teacherId) || t.name === teacherName);
+  appState.teachersList = (appState.teachersList || []).filter(t => String(t.id) !== String(teacherId) && t.name !== teacherName);
   if (target && target.email) {
-    appState.users = appState.users.filter(u => u.email.toLowerCase() !== target.email.toLowerCase());
+    appState.users = (appState.users || []).filter(u => u.email.toLowerCase() !== target.email.toLowerCase());
   }
   saveState();
   renderAdminTables();
   renderHodTeachers();
+  updateAllSelectDropdowns();
   showToast(`Teacher ${teacherName} removed.`, 'info');
 
   if (window.ApiClient && teacherId) {
@@ -3067,8 +3079,8 @@ async function handleDeleteTeacher(teacherId, teacherName) {
 async function handleDeleteHod(hodId, hodEmail, hodName) {
   if (!confirm(`Are you sure you want to remove HOD ${hodName}?`)) return;
 
-  appState.hodsList = appState.hodsList.filter(h => String(h.id) !== String(hodId) && h.email !== hodEmail);
-  appState.users = appState.users.filter(u => u.email.toLowerCase() !== hodEmail.toLowerCase());
+  appState.hodsList = (appState.hodsList || []).filter(h => String(h.id) !== String(hodId) && h.email !== hodEmail);
+  appState.users = (appState.users || []).filter(u => u.email.toLowerCase() !== hodEmail.toLowerCase());
   saveState();
   renderAdminTables();
   showToast(`HOD account for ${hodName} removed.`, 'info');
@@ -3082,13 +3094,163 @@ async function handleDeleteHod(hodId, hodEmail, hodName) {
   }
 }
 
+// Global helper to interconnect all Dropdowns across the Web Application
+function updateAllSelectDropdowns() {
+  // 1. Update Base Room in modal-add-batch
+  const batchRoomSelect = document.getElementById('new-batch-room');
+  if (batchRoomSelect) {
+    const currentVal = batchRoomSelect.value;
+    batchRoomSelect.innerHTML = '';
+    const rooms = appState.classroomsList || [];
+    if (rooms.length === 0) {
+      batchRoomSelect.innerHTML = '<option value="Room C204">Room C204 (Default - Add rooms in Infrastructure)</option>';
+    } else {
+      rooms.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.room;
+        opt.textContent = `${r.room} (${r.type || 'Hall'} • Cap: ${r.capacity || 60})`;
+        batchRoomSelect.appendChild(opt);
+      });
+    }
+    if (currentVal && Array.from(batchRoomSelect.options).some(o => o.value === currentVal)) {
+      batchRoomSelect.value = currentVal;
+    }
+  }
+
+  // 2. Update Room in modal-manual-timetable
+  const ttRoomSelect = document.getElementById('manual-tt-room');
+  if (ttRoomSelect) {
+    const currentVal = ttRoomSelect.value;
+    ttRoomSelect.innerHTML = '<option value="">-- Select Classroom / Lab --</option>';
+    (appState.classroomsList || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.room;
+      opt.textContent = `${r.room} (${r.type || 'Hall'})`;
+      ttRoomSelect.appendChild(opt);
+    });
+    if (currentVal) ttRoomSelect.value = currentVal;
+  }
+
+  // 3. Update Section in modal-manual-timetable
+  const ttSectionSelect = document.getElementById('manual-tt-section');
+  if (ttSectionSelect) {
+    const currentVal = ttSectionSelect.value;
+    ttSectionSelect.innerHTML = '<option value="">-- Select Class / Batch --</option>';
+    (appState.studentBatches || []).forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.name;
+      opt.textContent = `${b.name} (${b.sem || ''})`;
+      ttSectionSelect.appendChild(opt);
+    });
+    if (currentVal) ttSectionSelect.value = currentVal;
+  }
+
+  // 4. Update Subject in modal-manual-timetable
+  const ttSubjectSelect = document.getElementById('manual-tt-subject');
+  if (ttSubjectSelect) {
+    const currentVal = ttSubjectSelect.value;
+    ttSubjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+    (appState.subjectsList || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = `${s.name} (${s.code})`;
+      opt.textContent = `${s.name} (${s.code})`;
+      ttSubjectSelect.appendChild(opt);
+    });
+    if (currentVal) ttSubjectSelect.value = currentVal;
+  }
+
+  // 5. Update Teacher in modal-manual-timetable
+  const ttTeacherSelect = document.getElementById('manual-tt-teacher');
+  if (ttTeacherSelect) {
+    const currentVal = ttTeacherSelect.value;
+    ttTeacherSelect.innerHTML = '<option value="">-- Select Teacher --</option>';
+    (appState.teachersList || []).forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = `${t.name} (${t.subject || t.dept || 'Faculty'})`;
+      ttTeacherSelect.appendChild(opt);
+    });
+    if (currentVal) ttTeacherSelect.value = currentVal;
+  }
+
+  // 6. Update tt-filter-section in timetable view
+  const filterSection = document.getElementById('tt-filter-section');
+  if (filterSection) {
+    const currentFilter = filterSection.value;
+    filterSection.innerHTML = '<option value="ALL">All Classes</option>';
+    (appState.studentBatches || []).forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.name;
+      opt.textContent = b.name;
+      filterSection.appendChild(opt);
+    });
+    if (currentFilter && Array.from(filterSection.options).some(o => o.value === currentFilter)) {
+      filterSection.value = currentFilter;
+    }
+  }
+
+  // 7. Update modal-add-subject-mapping dropdowns
+  const mapTeacher = document.getElementById('map-teacher');
+  if (mapTeacher) {
+    const cur = mapTeacher.value;
+    mapTeacher.innerHTML = '<option value="">-- Select Teacher --</option>';
+    (appState.teachersList || []).forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = `${t.name} (${t.dept || 'Faculty'})`;
+      mapTeacher.appendChild(opt);
+    });
+    if (cur) mapTeacher.value = cur;
+  }
+
+  const mapSubj = document.getElementById('map-subject');
+  if (mapSubj) {
+    const cur = mapSubj.value;
+    mapSubj.innerHTML = '<option value="">-- Select Subject --</option>';
+    (appState.subjectsList || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = `${s.name} (${s.code})`;
+      opt.textContent = `${s.name} (${s.code})`;
+      mapSubj.appendChild(opt);
+    });
+    if (cur) mapSubj.value = cur;
+  }
+
+  const mapRoom = document.getElementById('map-room');
+  if (mapRoom) {
+    const cur = mapRoom.value;
+    mapRoom.innerHTML = '<option value="">Auto-assign</option>';
+    (appState.classroomsList || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.room;
+      opt.textContent = r.room;
+      mapRoom.appendChild(opt);
+    });
+    if (cur) mapRoom.value = cur;
+  }
+}
+window.updateAllSelectDropdowns = updateAllSelectDropdowns;
+
 // Dynamic UI Renderers for Admin Subjects & Classrooms with Delete Buttons
 function renderAdminSubjects() {
   const container = document.getElementById('admin-subjects-cards');
   if (!container) return;
 
   container.innerHTML = '';
-  appState.subjectsList.forEach(s => {
+  const subjects = appState.subjectsList || [];
+
+  if (subjects.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+        <svg class="w-10 h-10 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <p class="font-bold text-sm text-slate-600">No Subjects Registered Yet</p>
+        <p class="text-xs mt-0.5">Click "+ Add Subject" above to register your course curriculum.</p>
+      </div>
+    `;
+    return;
+  }
+
+  subjects.forEach(s => {
     const div = document.createElement('div');
     div.className = 'p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between';
     div.innerHTML = `
@@ -3103,7 +3265,7 @@ function renderAdminSubjects() {
           </div>
         </div>
         <h4 class="font-bold text-slate-900 mt-2">${s.name}</h4>
-        <p class="text-xs text-slate-500 mt-1">${s.type || 'Theory'} • ${s.dept || 'IT'}</p>
+        <p class="text-xs text-slate-500 mt-1">${s.type || 'Theory'} • ${s.dept || 'IT'} ${s.semester ? '• Sem ' + s.semester : ''}</p>
       </div>
     `;
     container.appendChild(div);
@@ -3115,7 +3277,20 @@ function renderAdminRooms() {
   if (!container) return;
 
   container.innerHTML = '';
-  appState.classroomsList.forEach(r => {
+  const rooms = appState.classroomsList || [];
+
+  if (rooms.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+        <svg class="w-10 h-10 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <p class="font-bold text-sm text-slate-600">No Classrooms or Labs Added Yet</p>
+        <p class="text-xs mt-0.5">Click "+ Add Classroom (With GPS)" above to configure your rooms with GPS location.</p>
+      </div>
+    `;
+    return;
+  }
+
+  rooms.forEach(r => {
     const div = document.createElement('div');
     div.className = 'p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between';
     div.innerHTML = `
@@ -3130,7 +3305,7 @@ function renderAdminRooms() {
           </div>
         </div>
         <p class="text-xs text-slate-500 mt-0.5">${r.type || 'Lecture Hall'} • Cap: ${r.capacity || 60}</p>
-        <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 ${r.latitude || 12.9716}°N, ${r.longitude || 77.5946}°E (±${r.radius || 50}m)</span>
+        <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 ${r.latitude ? Number(r.latitude).toFixed(4) : '12.9716'}°N, ${r.longitude ? Number(r.longitude).toFixed(4) : '77.5946'}°E (±${r.radius || 60}m)</span>
       </div>
     `;
     container.appendChild(div);
@@ -3150,6 +3325,7 @@ function handleAdminAddBatch(e) {
     return;
   }
 
+  appState.studentBatches = appState.studentBatches || [];
   if (appState.studentBatches.some(b => b.name === name)) {
     showToast(`Batch section ${name} already exists.`, 'error');
     return;
@@ -3165,6 +3341,7 @@ function handleAdminAddBatch(e) {
 
   saveState();
   renderAdminBatches();
+  updateAllSelectDropdowns();
   closeModal('modal-add-batch');
   showToast(`Class & Batch ${name} added successfully!`, 'success');
   e.target.reset();
@@ -3173,9 +3350,10 @@ function handleAdminAddBatch(e) {
 function handleDeleteBatch(batchId, batchName) {
   if (!confirm(`Are you sure you want to delete class batch ${batchName}?`)) return;
 
-  appState.studentBatches = appState.studentBatches.filter(b => b.id !== batchId && b.name !== batchName);
+  appState.studentBatches = (appState.studentBatches || []).filter(b => b.id !== batchId && b.name !== batchName);
   saveState();
   renderAdminBatches();
+  updateAllSelectDropdowns();
   showToast(`Class batch ${batchName} deleted.`, 'info');
 }
 
@@ -3184,7 +3362,20 @@ function renderAdminBatches() {
   if (!container) return;
 
   container.innerHTML = '';
-  appState.studentBatches.forEach(b => {
+  const batches = appState.studentBatches || [];
+
+  if (batches.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400">
+        <svg class="w-10 h-10 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <p class="font-bold text-sm text-slate-600">No Academic Classes or Batches Registered</p>
+        <p class="text-xs mt-0.5">Click "+ Add Class / Batch" above to create student sections (e.g. C04, IT-A).</p>
+      </div>
+    `;
+    return;
+  }
+
+  batches.forEach(b => {
     const div = document.createElement('div');
     div.className = 'p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between';
     div.innerHTML = `
@@ -3785,6 +3976,9 @@ function renderActiveViews() {
   renderHodTeachers();
   renderHodLeaves();
   renderNotifications();
+  if (typeof updateAllSelectDropdowns === 'function') {
+    updateAllSelectDropdowns();
+  }
 }
 
 // Reset data to defaults
