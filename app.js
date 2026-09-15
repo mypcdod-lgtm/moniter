@@ -930,11 +930,36 @@ function switchTeacherTab(tabId) {
 // HIERARCHICAL USER CREATION (ADMIN ADDS HOD, HOD ADDS TEACHERS)
 // =========================================================================
 
-// 1. Admin adds an HOD with Gmail & Password
+// 0. HOD Department Multi-Selection Limiter (Min 1, Max 2)
+function handleHodDeptSelectionLimit(cb) {
+  const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-hod-departments"]:checked'));
+  if (checkedBoxes.length > 2) {
+    if (cb) cb.checked = false;
+    showToast('A single HOD can manage a maximum of 2 departments.', 'warning');
+  }
+  const countEl = document.getElementById('hod-dept-count-num');
+  const nowChecked = document.querySelectorAll('input[name="new-hod-departments"]:checked');
+  if (countEl) countEl.textContent = nowChecked.length;
+}
+window.handleHodDeptSelectionLimit = handleHodDeptSelectionLimit;
+
+// 1. Admin adds an HOD with Gmail & Password (1 or 2 Departments)
 function handleAddHod(e) {
   e.preventDefault();
   const name = document.getElementById('new-hod-name').value.trim();
-  const dept = document.getElementById('new-hod-dept').value.trim();
+  const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-hod-departments"]:checked'));
+  const checkedDepts = checkedBoxes.map(cb => cb.value);
+
+  if (checkedDepts.length < 1) {
+    showToast('Please select at least 1 department for this HOD.', 'error');
+    return;
+  }
+  if (checkedDepts.length > 2) {
+    showToast('A single HOD can manage a maximum of 2 departments.', 'error');
+    return;
+  }
+
+  const dept = checkedDepts.join(' & ');
   const email = document.getElementById('new-hod-email').value.trim().toLowerCase();
   const password = document.getElementById('new-hod-password').value.trim();
   const rooms = document.getElementById('new-hod-rooms').value.trim() || 'Assigned Block';
@@ -957,7 +982,8 @@ function handleAddHod(e) {
     email,
     password,
     role: 'hod',
-    dept
+    dept,
+    departments: checkedDepts
   });
 
   // Add to HOD list
@@ -966,6 +992,7 @@ function handleAddHod(e) {
     name,
     email,
     dept,
+    departments: checkedDepts,
     roomsManaged: rooms,
     assignedFaculty: 10,
     status: 'Active'
@@ -975,9 +1002,12 @@ function handleAddHod(e) {
   renderAdminTables();
   renderQuickLoginButtons();
   closeModal('modal-add-hod');
-  showToast(`HOD account for ${name} created! Password set. HOD can now log in with ${email}.`, 'success');
+  showToast(`HOD account for ${name} (${dept}) created! Password set. HOD can now log in with ${email}.`, 'success');
   const addHodForm = document.getElementById('form-add-hod');
-  if (addHodForm) addHodForm.reset();
+  if (addHodForm) {
+    addHodForm.reset();
+    handleHodDeptSelectionLimit(null);
+  }
 
   // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices (PC & Mobile)
   if (window.FirebaseAuth && window.FirebaseAuth.registerWithEmail) {
@@ -2511,10 +2541,17 @@ function renderAdminTables() {
     appState.hodsList.forEach(h => {
       const tr = document.createElement('tr');
       tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
+      const depts = (h.departments && h.departments.length > 0) ? h.departments : (h.dept ? h.dept.split(' & ') : ['Information Technology']);
+      const deptBadges = depts.map(d => `<span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${d}</span>`).join(' ');
+
       tr.innerHTML = `
         <td class="py-3 px-4 font-bold text-slate-800">${h.name}</td>
         <td class="py-3 px-4 font-mono text-xs text-indigo-600 font-semibold">${h.email}</td>
-        <td class="py-3 px-4 text-slate-700 font-medium">${h.dept}</td>
+        <td class="py-3 px-4 text-slate-700 font-medium">
+          <div class="flex flex-wrap gap-1 items-center">
+            ${deptBadges}
+          </div>
+        </td>
         <td class="py-3 px-4 text-slate-500">${h.roomsManaged}</td>
         <td class="py-3 px-4">
           <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
@@ -2711,6 +2748,12 @@ function openModal(modalId) {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       dateInput.value = tomorrow.toISOString().split('T')[0];
+    }
+  }
+
+  if (modalId === 'modal-add-hod') {
+    if (typeof handleHodDeptSelectionLimit === 'function') {
+      handleHodDeptSelectionLimit(null);
     }
   }
 }

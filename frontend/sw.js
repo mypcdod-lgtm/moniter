@@ -1,5 +1,5 @@
-// FOLIO Service Worker v19.0.0 (Windows Desktop & Mobile PWA)
-const CACHE_NAME = "folio-v19";
+// FOLIO Service Worker v20.0.0 (Windows Desktop & Mobile PWA)
+const CACHE_NAME = "folio-v20";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
