@@ -47,7 +47,9 @@ const DEFAULT_STATE = {
   masterTimetableSlots: [],
   teacherTodayClasses: [],
   leavesList: [],
-  weeklyTopics: []
+  weeklyTopics: [],
+  teacherDutyReports: {},
+  hodSelectedDeptFilter: 'ALL'
 };
 
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
@@ -66,6 +68,8 @@ if (!Array.isArray(appState.masterTimetableSlots)) appState.masterTimetableSlots
 if (!Array.isArray(appState.liveMonitoring)) appState.liveMonitoring = [];
 if (!Array.isArray(appState.leavesList)) appState.leavesList = [];
 if (!Array.isArray(appState.weeklyTopics)) appState.weeklyTopics = [];
+if (typeof appState.teacherDutyReports !== 'object' || appState.teacherDutyReports === null) appState.teacherDutyReports = {};
+if (!appState.hodSelectedDeptFilter) appState.hodSelectedDeptFilter = 'ALL';
 if (!appState.collegeBellSchedule) appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
 
 // Automatic Cleanup of Legacy Hardcoded Mock Data & Default Credentials
@@ -1073,18 +1077,33 @@ async function handleAddHod(e) {
   }
 }
 
-// 2. HOD adds a Teacher with Gmail & Password
+// Helper: Update teacher department selection counter
+function handleTeacherDeptSelection(cb) {
+  const nowChecked = document.querySelectorAll('input[name="new-teacher-departments"]:checked');
+  const countEl = document.getElementById('teacher-dept-count-num');
+  if (countEl) countEl.textContent = nowChecked.length;
+}
+window.handleTeacherDeptSelection = handleTeacherDeptSelection;
+
+// 2. HOD adds a Teacher with Gmail & Password (Multi-Department Support)
 async function handleHodAddTeacher(e) {
   if (e && e.preventDefault) e.preventDefault();
   const name = (document.getElementById('hod-teacher-name')?.value || '').trim();
   const email = (document.getElementById('hod-teacher-email')?.value || '').trim().toLowerCase();
   const subject = (document.getElementById('hod-teacher-subject')?.value || '').trim();
-  const dept = (document.getElementById('hod-teacher-dept')?.value || '').trim() || 'IT';
+  const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-teacher-departments"]:checked'));
+  const checkedDepts = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+  const dept = checkedDepts.length > 0 ? checkedDepts.join(' & ') : 'Information Technology';
   const password = (document.getElementById('hod-teacher-password')?.value || '').trim();
   const workload = (document.getElementById('hod-teacher-workload')?.value || '').trim() || '16 hrs/wk';
 
   if (!name || !email || !password || !subject) {
     showToast('Name, Subject, Gmail, and Password are required.', 'error');
+    return;
+  }
+
+  if (checkedDepts.length === 0) {
+    showToast('Please select at least 1 department for this teacher.', 'error');
     return;
   }
 
@@ -1126,6 +1145,7 @@ async function handleHodAddTeacher(e) {
     email,
     role: 'teacher',
     dept,
+    departments: checkedDepts,
     subject,
     created_at: new Date().toISOString()
   });
@@ -1138,6 +1158,7 @@ async function handleHodAddTeacher(e) {
     email,
     subject,
     dept,
+    departments: checkedDepts,
     workload,
     status: 'Available'
   });
@@ -1169,7 +1190,58 @@ async function handleHodAddTeacher(e) {
 // HOD DASHBOARD & LIVE MONITORING
 // =========================================================================
 
+// HOD Multi-Department Filter Bar Controller
+function renderHodDeptFilterBar() {
+  const container = document.getElementById('hod-dept-pills-container');
+  const countBadge = document.getElementById('hod-dept-filter-count-badge');
+  if (!container) return;
+
+  const hodUser = appState.currentUser || {};
+  let depts = [];
+  if (Array.isArray(hodUser.departments) && hodUser.departments.length > 0) {
+    depts = hodUser.departments;
+  } else if (hodUser.dept) {
+    depts = hodUser.dept.split('&').map(d => d.trim());
+  } else {
+    depts = ['Information Technology'];
+  }
+
+  const activeFilter = appState.hodSelectedDeptFilter || 'ALL';
+
+  let html = `
+    <button type="button" onclick="setHodDeptFilter('ALL')" class="hod-dept-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${activeFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+      All My Departments (${depts.length})
+    </button>
+  `;
+
+  depts.forEach(d => {
+    const isSelected = activeFilter.toLowerCase() === d.toLowerCase();
+    html += `
+      <button type="button" onclick="setHodDeptFilter('${escapeHTML(d)}')" class="hod-dept-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${isSelected ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+        ${escapeHTML(d)}
+      </button>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  if (countBadge) {
+    countBadge.textContent = activeFilter === 'ALL'
+      ? `Displaying All Managed Batches (${depts.join(' & ')})`
+      : `Viewing: ${activeFilter}`;
+  }
+}
+window.renderHodDeptFilterBar = renderHodDeptFilterBar;
+
+function setHodDeptFilter(dept) {
+  appState.hodSelectedDeptFilter = dept;
+  renderHodDeptFilterBar();
+  renderHodDashboard();
+}
+window.setHodDeptFilter = setHodDeptFilter;
+
 // Extract all classes scheduled across all sections for today from masterTimetableSlots
+// Strictly filtered by HOD's assigned department(s) with NO fake or unstored classes
 function getHodTodayDepartmentClasses() {
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1178,7 +1250,62 @@ function getHodTodayDepartmentClasses() {
   const targetDay = isWeekend ? 'Monday' : currentDay;
 
   const bell = appState.collegeBellSchedule || DEFAULT_STATE.collegeBellSchedule;
-  const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === targetDay);
+
+  // Multi-Department HOD Filtering
+  const hodUser = appState.currentUser || {};
+  let userDepts = [];
+  if (Array.isArray(hodUser.departments) && hodUser.departments.length > 0) {
+    userDepts = hodUser.departments.map(d => d.trim().toLowerCase());
+  } else if (hodUser.dept) {
+    userDepts = hodUser.dept.split('&').map(d => d.trim().toLowerCase());
+  } else {
+    userDepts = ['information technology'];
+  }
+
+  const activeFilter = (appState.hodSelectedDeptFilter || 'ALL').trim().toLowerCase();
+
+  const isDeptMatch = (deptStr, secLower, bDept) => {
+    const d = deptStr.toLowerCase();
+    if (bDept && (bDept.includes(d) || d.includes(bDept))) return true;
+    if (d.includes('information') || d.includes('it')) {
+      if (secLower.startsWith('it-') || secLower === 'it' || secLower.includes('it')) return true;
+    }
+    if (d.includes('artificial') || d.includes('ai') || d.includes('data')) {
+      if (secLower.startsWith('ai') || secLower.includes('aids') || secLower.includes('ai/ds')) return true;
+    }
+    if (d.includes('computer') || d.includes('cse')) {
+      if (secLower.startsWith('cse-') || secLower === 'cse' || secLower.includes('cse')) return true;
+    }
+    if (d.includes('electronic') || d.includes('ece')) {
+      if (secLower.startsWith('ece-') || secLower === 'ece' || secLower.includes('ece')) return true;
+    }
+    if (d.includes('mechanical')) {
+      if (secLower.startsWith('mech') || secLower.includes('mech')) return true;
+    }
+    if (d.includes('civil')) {
+      if (secLower.startsWith('civil') || secLower.includes('civil')) return true;
+    }
+    return false;
+  };
+
+  const daySlots = (appState.masterTimetableSlots || []).filter(s => {
+    if (s.day !== targetDay) return false;
+
+    const secLower = (s.section || '').toLowerCase();
+    const batch = (appState.studentBatches || []).find(b => b.name === s.section);
+    const bDept = (batch?.dept || '').toLowerCase();
+
+    if (activeFilter !== 'all') {
+      return isDeptMatch(activeFilter, secLower, bDept);
+    }
+
+    return userDepts.some(ud => isDeptMatch(ud, secLower, bDept));
+  });
+
+  // If no day slots exist, strictly return [] (NO fake or unstored classes!)
+  if (daySlots.length === 0) {
+    return [];
+  }
 
   const periodKeys = [
     { pKey: 'p1', periodNum: 1 },
@@ -1213,7 +1340,8 @@ function getHodTodayDepartmentClasses() {
       // Parse subject, teacher, room
       let subject = cellVal;
       let teacher = 'Faculty';
-      let room = slot.section === 'IT-B' ? 'C205' : 'C204';
+      const batch = (appState.studentBatches || []).find(b => b.name === slot.section);
+      let room = batch?.baseRoom || 'C204';
 
       if (cellVal.includes('(') && cellVal.includes(')')) {
         const parts = cellVal.split('(');
@@ -1240,7 +1368,7 @@ function getHodTodayDepartmentClasses() {
 
       allDayClasses.push({
         id: classCounter++,
-        class: slot.section || 'IT-A',
+        class: slot.section || 'Class',
         subject: subject,
         teacher: teacher,
         room: room,
@@ -1262,6 +1390,8 @@ function getHodTodayDepartmentClasses() {
 }
 
 function renderHodDashboard() {
+  renderHodDeptFilterBar();
+
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1279,46 +1409,91 @@ function renderHodDashboard() {
   const isLunchBreak = currentMinutes >= 760 && currentMinutes < 810;
   const isBreakTime = isMorningBreak || isLunchBreak;
 
+  const localToday = now.toLocaleDateString('en-CA');
+  const dutyReportsToday = (appState.teacherDutyReports && appState.teacherDutyReports[localToday]) || {};
+
   let activeCount = 0;
   let scheduledCount = 0;
   let vacantCount = 0;
   let substituteCount = 0;
 
   allTodayClasses.forEach(row => {
+    // Lookup teacher duty report for today
+    const tNameLower = (row.teacher || '').toLowerCase();
+    const teacherObj = (appState.teachersList || []).find(t => (t.name || '').toLowerCase() === tNameLower);
+    const teacherEmail = (teacherObj?.email || '').toLowerCase();
+    const dutyReport = dutyReportsToday[teacherEmail] || Object.values(dutyReportsToday).find(r => 
+      (r.teacher_name || '').toLowerCase() === tNameLower || 
+      (teacherEmail && (r.teacher_email || '').toLowerCase() === teacherEmail)
+    );
+
+    const isDutyOn = dutyReport && dutyReport.status === 'ON_DUTY';
+    const isLateComer = dutyReport && dutyReport.is_late_comer;
+    row.isDutyOn = isDutyOn;
+    row.isLateComer = isLateComer;
+    row.reportedAt = dutyReport?.reported_at || '';
+
+    // Check if teacher verified in-room presence
+    const isRoomCheckedIn = (appState.teacherCheckedIn && (
+      (appState.currentUser?.email && teacherEmail && appState.currentUser.email.toLowerCase() === teacherEmail) ||
+      (appState.currentUser?.name && (appState.currentUser.name.toLowerCase().includes(tNameLower) || tNameLower.includes(appState.currentUser.name.toLowerCase())))
+    ));
+
     if (isWeekend || isAfterHours) {
       row.status = 'COMPLETED';
-      if (row.substituteTeacher) {
-        substituteCount++;
-      }
+      row.exactStatus = 'Concluded';
+      if (row.substituteTeacher) substituteCount++;
     } else if (isBeforeHours) {
       row.status = 'SCHEDULED';
+      row.exactStatus = isDutyOn ? 'Ready (On Duty)' : 'Scheduled (Starts 09:00 AM)';
       scheduledCount++;
     } else if (currentMinutes >= row.endMin) {
       row.status = 'COMPLETED';
-      if (row.substituteTeacher) {
-        substituteCount++;
-      }
+      row.exactStatus = !isDutyOn ? 'Missed (Duty Not Reported)' : (isLateComer && dutyReport?.first_period_missed && row.period === 1 ? 'Missed (Late Arrival)' : 'Concluded');
+      if (row.substituteTeacher) substituteCount++;
     } else if (currentMinutes >= row.startMin && currentMinutes < row.endMin) {
-      // CURRENT PERIOD!
+      // CURRENT PERIOD IN SESSION!
       if (row.isLeaveApproved) {
         row.status = 'SUBSTITUTE';
+        row.exactStatus = `Sub: ${row.substituteTeacher || 'Faculty'}`;
         substituteCount++;
-      } else if (row.isVacantPendingLeave) {
+      } else if (!isDutyOn) {
+        // Teacher did not turn on "Report On Duty" before period started -> VACANT!
         row.status = 'VACANT';
+        row.vacantReason = 'Teacher did not report on duty today';
+        row.exactStatus = 'VACANT (DUTY NOT REPORTED)';
         vacantCount++;
-      } else {
+      } else if (isRoomCheckedIn) {
+        // Teacher reported on duty AND checked into room
         row.status = 'ACTIVE';
+        row.exactStatus = isLateComer ? 'IN ROOM (LATE COMER)' : 'IN ROOM (ON TIME)';
         activeCount++;
+      } else {
+        // Duty is ON, room check-in evaluated with 5-minute grace period
+        if (currentMinutes <= row.startMin + 5) {
+          row.status = 'ACTIVE';
+          row.exactStatus = 'CHECKING IN (5M GRACE)';
+          activeCount++;
+        } else {
+          // Exceeded 5-minute grace period without in-room checkin -> VACANT!
+          row.status = 'VACANT';
+          row.vacantReason = 'No classroom check-in after 5-minute grace period';
+          row.exactStatus = 'VACANT / UNATTENDED';
+          vacantCount++;
+        }
       }
     } else {
       // Future periods today
       if (row.isLeaveApproved) {
         row.status = 'SUBSTITUTE';
+        row.exactStatus = `Sub: ${row.substituteTeacher || 'Faculty'}`;
       } else if (row.isVacantPendingLeave) {
         row.status = 'VACANT';
+        row.exactStatus = 'Leave Pending';
         vacantCount++;
       } else {
         row.status = 'SCHEDULED';
+        row.exactStatus = isDutyOn ? 'Scheduled (Faculty on duty)' : (currentMinutes > 540 ? 'Scheduled (Duty Unreported)' : 'Scheduled');
       }
       scheduledCount++;
     }
@@ -1357,7 +1532,8 @@ function renderHodDashboard() {
 
   // Contextual helper subtitles
   if (statTotalSub) {
-    statTotalSub.textContent = isWeekend ? 'Weekend • Campus Closed' : `${currentDayName} • IT Dept`;
+    const filterLabel = appState.hodSelectedDeptFilter === 'ALL' ? 'All Managed Depts' : appState.hodSelectedDeptFilter;
+    statTotalSub.textContent = isWeekend ? 'Weekend • Campus Closed' : `${currentDayName} • ${filterLabel}`;
   }
   if (statActiveSub) {
     if (isWeekend) {
@@ -1371,7 +1547,7 @@ function renderHodDashboard() {
     } else if (isLunchBreak) {
       statActiveSub.textContent = '0 Active • Lunch Break';
     } else {
-      statActiveSub.textContent = `🟢 ${activeCount} Teachers in Class`;
+      statActiveSub.textContent = `🟢 ${activeCount} Verified in Classroom`;
     }
   }
   if (statScheduledSub) {
@@ -1439,7 +1615,7 @@ function renderHodDashboard() {
     } else if (isBreakTime) {
       tableSub.textContent = 'Break in progress • Resuming next period';
     } else {
-      tableSub.textContent = 'Real-time classroom sensor & verified teacher check-in status';
+      tableSub.textContent = 'Real-time classroom telemetry & verified teacher check-in status';
     }
   }
 
@@ -1448,82 +1624,98 @@ function renderHodDashboard() {
   if (!tbody) return;
 
   tbody.innerHTML = '';
-  allTodayClasses.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-sm';
-
-    let statusBadge = '';
-    if (row.status === 'ACTIVE') {
-      statusBadge = `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot"></span>
-          ACTIVE
-        </span>`;
-    } else if (row.status === 'SCHEDULED') {
-      statusBadge = `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-          <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-          SCHEDULED
-        </span>`;
-    } else if (row.status === 'COMPLETED') {
-      statusBadge = `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-          <span>✓</span>
-          COMPLETED
-        </span>`;
-    } else if (row.status === 'VACANT') {
-      statusBadge = `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-          VACANT
-        </span>`;
-    } else if (row.status === 'SUBSTITUTE') {
-      statusBadge = `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
-          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-          SUBSTITUTE
-        </span>`;
-    }
-
-    let actionBtn = '';
-    if (row.status === 'VACANT') {
-      actionBtn = `
-        <button onclick="openSubstituteModal(${row.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-          Assign Substitute
-        </button>`;
-    } else if (row.status === 'SUBSTITUTE') {
-      actionBtn = `
-        <span class="text-xs text-amber-800 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200">
-          Sub: <strong class="font-semibold">${escapeHTML(row.substituteTeacher || 'Assigned')}</strong>
-        </span>`;
-    } else if (row.status === 'COMPLETED') {
-      actionBtn = `<span class="text-xs text-slate-400 font-medium">Session Concluded</span>`;
-    } else {
-      actionBtn = `
-        <button onclick="showToast('Class details for ' + ${JSON.stringify(row.class || '')} + ' - ' + ${JSON.stringify(row.subject || '')} + ' (' + ${JSON.stringify(row.room || '')} + ')', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline cursor-pointer">
-          View Room
-        </button>`;
-    }
-
-    const facultyInitial = escapeHTML((row.teacher || 'F').charAt(0).toUpperCase());
-
-    tr.innerHTML = `
-      <td class="py-3.5 px-4 font-bold text-slate-900">${escapeHTML(row.class)}</td>
-      <td class="py-3.5 px-4 font-medium text-slate-800">${escapeHTML(row.subject)}</td>
-      <td class="py-3.5 px-4 text-slate-700">
-        <div class="flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
-          <span>${escapeHTML(row.teacher)}</span>
-        </div>
-      </td>
-      <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${escapeHTML(row.room)}</td>
-      <td class="py-3.5 px-4 font-mono text-xs text-slate-600">${escapeHTML(row.time)}</td>
-      <td class="py-3.5 px-4">${statusBadge}</td>
-      <td class="py-3.5 px-4 text-right">${actionBtn}</td>
+  if (allTodayClasses.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="py-8 text-center text-slate-400 text-xs">
+          No classes scheduled for today under this department view. Generate or configure timetable in Admin Desk.
+        </td>
+      </tr>
     `;
-    tbody.appendChild(tr);
-  });
+  } else {
+    allTodayClasses.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-sm';
+
+      let statusBadge = '';
+      if (row.status === 'ACTIVE') {
+        statusBadge = `
+          <div class="flex flex-col gap-0.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot"></span>
+              ${escapeHTML(row.exactStatus || 'ACTIVE')}
+            </span>
+            ${row.isLateComer ? '<span class="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 w-fit">LATE COMER</span>' : ''}
+          </div>`;
+      } else if (row.status === 'SCHEDULED') {
+        statusBadge = `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+            ${escapeHTML(row.exactStatus || 'SCHEDULED')}
+          </span>`;
+      } else if (row.status === 'COMPLETED') {
+        statusBadge = `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+            <span>✓</span>
+            ${escapeHTML(row.exactStatus || 'COMPLETED')}
+          </span>`;
+      } else if (row.status === 'VACANT') {
+        statusBadge = `
+          <div class="flex flex-col gap-0.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+              ${escapeHTML(row.exactStatus || 'VACANT')}
+            </span>
+            ${row.vacantReason ? `<span class="text-[9px] text-rose-600 font-medium">${escapeHTML(row.vacantReason)}</span>` : ''}
+          </div>`;
+      } else if (row.status === 'SUBSTITUTE') {
+        statusBadge = `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            ${escapeHTML(row.exactStatus || 'SUBSTITUTE')}
+          </span>`;
+      }
+
+      let actionBtn = '';
+      if (row.status === 'VACANT') {
+        actionBtn = `
+          <button onclick="openSubstituteModal(${row.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+            Assign Substitute
+          </button>`;
+      } else if (row.status === 'SUBSTITUTE') {
+        actionBtn = `
+          <span class="text-xs text-amber-800 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200">
+            Sub: <strong class="font-semibold">${escapeHTML(row.substituteTeacher || 'Assigned')}</strong>
+          </span>`;
+      } else if (row.status === 'COMPLETED') {
+        actionBtn = `<span class="text-xs text-slate-400 font-medium">Session Concluded</span>`;
+      } else {
+        actionBtn = `
+          <button onclick="showToast('Class details: ' + ${JSON.stringify(row.class || '')} + ' - ' + ${JSON.stringify(row.subject || '')} + ' (' + ${JSON.stringify(row.room || '')} + ')', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline cursor-pointer">
+            View Room
+          </button>`;
+      }
+
+      const facultyInitial = escapeHTML((row.teacher || 'F').charAt(0).toUpperCase());
+
+      tr.innerHTML = `
+        <td class="py-3.5 px-4 font-bold text-slate-900">${escapeHTML(row.class)}</td>
+        <td class="py-3.5 px-4 font-medium text-slate-800">${escapeHTML(row.subject)}</td>
+        <td class="py-3.5 px-4 text-slate-700">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
+            <span>${escapeHTML(row.teacher)}</span>
+          </div>
+        </td>
+        <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${escapeHTML(row.room)}</td>
+        <td class="py-3.5 px-4 font-mono text-xs text-slate-600">${escapeHTML(row.time)}</td>
+        <td class="py-3.5 px-4">${statusBadge}</td>
+        <td class="py-3.5 px-4 text-right">${actionBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
   // Keep HOD sub-views in sync
   renderHodVacantClasses();
@@ -1822,7 +2014,10 @@ function renderHodTodayTimetable() {
   if (metaEl) {
     if (isWeekend) metaEl.textContent = 'Weekend preview • Regular timetable resumes Monday';
     else if (isAfterHours) metaEl.textContent = `All ${allTodayClasses.length} periods concluded today (09:00 AM - 04:00 PM)`;
-    else metaEl.textContent = `Live timetable schedule across IT Department batches (${allTodayClasses.length} periods)`;
+    else {
+      const deptName = appState.hodSelectedDeptFilter === 'ALL' ? 'Managed' : appState.hodSelectedDeptFilter;
+      metaEl.textContent = `Live timetable schedule across ${deptName} Department batches (${allTodayClasses.length} periods)`;
+    }
   }
 
   if (pillEl) {
@@ -2105,11 +2300,87 @@ function getTeacherTodaySchedule(teacherName) {
   return classes;
 }
 
+// Teacher Daily On-Duty Master Switch Controller
+async function handleTeacherDutyToggle(isChecked) {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const localToday = now.toLocaleDateString('en-CA');
+  const teacherEmail = (appState.currentUser?.email || 'faculty@college.edu').toLowerCase();
+  const teacherName = appState.currentUser?.name || 'Faculty Member';
+  const dept = appState.currentUser?.dept || 'Information Technology';
+
+  appState.teacherDutyReports = appState.teacherDutyReports || {};
+  appState.teacherDutyReports[localToday] = appState.teacherDutyReports[localToday] || {};
+
+  // Operating start is 9:00 AM (540 min). If checked after 9:00 AM, flagged as late comer
+  const isLateComer = isChecked && (currentMinutes > 540);
+  const firstPeriodMissed = isChecked && (currentMinutes > 590);
+
+  const reportObj = {
+    teacher_name: teacherName,
+    teacher_email: teacherEmail,
+    department: dept,
+    status: isChecked ? 'ON_DUTY' : 'OFF_DUTY',
+    is_late_comer: isLateComer,
+    first_period_missed: firstPeriodMissed,
+    reported_at: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: localToday,
+    timestamp: Date.now()
+  };
+
+  appState.teacherDutyReports[localToday][teacherEmail] = reportObj;
+  saveState(true);
+
+  // Sync with FastAPI backend
+  if (window.ApiClient && typeof ApiClient.reportDuty === 'function') {
+    try {
+      await ApiClient.reportDuty(reportObj);
+    } catch (e) {
+      console.warn('Backend duty report note:', e.message);
+    }
+  }
+
+  // Sync to Firebase Cloud Firestore collection 'duty_reports'
+  if (window.FirebaseSync && typeof FirebaseSync.saveDocument === 'function') {
+    const docKey = `${localToday}_${teacherEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    FirebaseSync.saveDocument('duty_reports', docKey, reportObj)
+      .catch(e => console.warn('Firestore duty report sync note:', e.message));
+  }
+
+  if (isChecked) {
+    if (isLateComer) {
+      showToast('⚠️ Reported On Duty (Flagged as LATE COMER - reported after period start).', 'warning');
+    } else {
+      showToast('✓ Reported On Duty! You are confirmed on campus for today.', 'success');
+    }
+  } else {
+    showToast('Marked OFF DUTY. Scheduled classes will show as VACANT to HOD for substitute assignment.', 'info');
+  }
+
+  renderTeacherDashboard();
+  renderHodDashboard();
+}
+window.handleTeacherDutyToggle = handleTeacherDutyToggle;
+
 async function handleTeacherCheckIn(classObj) {
   const isCheckingIn = !appState.teacherCheckedIn;
   const targetClass = classObj || currentActiveTeacherClass;
   const targetRoom = targetClass?.room || 'Room C204';
   const targetBatch = targetClass?.class || 'IT-A';
+  const startMin = targetClass?.startMin || 540;
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // 5-Minute Grace Period check
+  let timeliness = 'ON_TIME';
+  let minutesLate = 0;
+  if (currentMinutes <= startMin + 5) {
+    timeliness = 'ON_TIME';
+  } else {
+    timeliness = 'LATE';
+    minutesLate = Math.max(0, currentMinutes - startMin);
+  }
 
   if (isCheckingIn) {
     showToast(`📍 Acquiring device GPS coordinates for ${targetRoom}...`, 'info');
@@ -2118,7 +2389,8 @@ async function handleTeacherCheckIn(classObj) {
       if (window.GeoLocationHelper && window.GeoLocationHelper.isSupported()) {
         const result = await window.GeoLocationHelper.performTeacherCheckIn(targetBatch, targetRoom, appState.currentUser?.dept || 'Information Technology');
         console.log('[GPS Check-in Result]:', result);
-        showToast(`✓ GPS Verified (${result.distance_meters}m from ${targetRoom})! Room ${targetRoom} is now ACTIVE.`, 'success');
+        const lateNotice = timeliness === 'LATE' ? ` (Late to Class: ${minutesLate}m)` : ' (On Time)';
+        showToast(`✓ GPS Verified (${result.distance_meters}m from ${targetRoom})! Room ${targetRoom} is ACTIVE${lateNotice}.`, 'success');
       } else {
         showToast(`Checked in successfully! Room ${targetRoom} status is now ACTIVE.`, 'success');
       }
@@ -2128,19 +2400,28 @@ async function handleTeacherCheckIn(classObj) {
     }
 
     appState.teacherCheckedIn = true;
+    appState.teacherCheckInTimeliness = {
+      timeliness,
+      minutesLate,
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      period: targetClass?.period || 1
+    };
+
     const arunClass = (appState.liveMonitoring || []).find(c => (c.teacher || '').toLowerCase().includes('arun') || c.class === targetBatch);
     if (arunClass) {
       arunClass.status = 'ACTIVE';
+      arunClass.exactStatus = timeliness === 'LATE' ? `LATE TO CLASS (${minutesLate}m late)` : 'IN ROOM (ON TIME)';
       if (appState.hodStats) {
         appState.hodStats.active = Math.min(appState.hodStats.totalClasses || 10, (appState.hodStats.active || 0) + 1);
       }
     }
   } else {
     appState.teacherCheckedIn = false;
+    appState.teacherCheckInTimeliness = null;
     showToast(`Checked out of ${targetRoom}.`, 'info');
   }
 
-  saveState();
+  saveState(true);
   renderTeacherDashboard();
   renderHodDashboard();
 
@@ -2178,6 +2459,55 @@ function renderTeacherDashboard() {
   const utcToday = now.toISOString().split('T')[0];
   const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
   const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+
+  // Render Daily On-Duty Master Switch Card
+  const teacherEmail = currentTeacherEmail || 'faculty@college.edu';
+  const dutyReportsToday = (appState.teacherDutyReports && appState.teacherDutyReports[localToday]) || {};
+  const dutyReport = dutyReportsToday[teacherEmail] || Object.values(dutyReportsToday).find(r =>
+    (r.teacher_name || '').toLowerCase() === currentTeacherName ||
+    (teacherEmail && (r.teacher_email || '').toLowerCase() === teacherEmail)
+  );
+
+  const isDutyOn = dutyReport && dutyReport.status === 'ON_DUTY';
+  const dutyToggle = document.getElementById('teacher-duty-toggle');
+  const dutyBadge = document.getElementById('teacher-duty-status-badge');
+  const dutyTimestampBox = document.getElementById('teacher-duty-timestamp-box');
+  const dutyTimeText = document.getElementById('teacher-duty-time-text');
+  const dutyLatenessTag = document.getElementById('teacher-duty-lateness-tag');
+  const dutyIconBox = document.getElementById('teacher-duty-icon-box');
+
+  if (dutyToggle) dutyToggle.checked = Boolean(isDutyOn);
+  if (dutyBadge) {
+    if (!isDutyOn) {
+      dutyBadge.textContent = 'OFF DUTY';
+      dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200';
+    } else if (dutyReport.is_late_comer) {
+      dutyBadge.textContent = 'LATE COMER';
+      dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse';
+    } else {
+      dutyBadge.textContent = 'ON DUTY (ON TIME)';
+      dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300';
+    }
+  }
+
+  if (dutyTimestampBox && dutyTimeText) {
+    if (isDutyOn && dutyReport?.reported_at) {
+      dutyTimestampBox.classList.remove('hidden');
+      dutyTimeText.textContent = `Reported: ${dutyReport.reported_at}`;
+      if (dutyLatenessTag) {
+        dutyLatenessTag.textContent = dutyReport.is_late_comer ? '⚠️ Reported after period start' : '✓ Reported on time';
+        dutyLatenessTag.className = dutyReport.is_late_comer ? 'font-bold text-amber-700' : 'font-bold text-emerald-700';
+      }
+    } else {
+      dutyTimestampBox.classList.add('hidden');
+    }
+  }
+
+  if (dutyIconBox) {
+    dutyIconBox.className = isDutyOn
+      ? 'w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl shrink-0 border border-emerald-200'
+      : 'w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xl shrink-0 border border-indigo-100';
+  }
   const approvedLeaveToday = (appState.leavesList || []).find(l => {
     const tName = (l.teacher_name || '').toLowerCase();
     const tEmail = (l.teacher_email || '').toLowerCase();
@@ -3861,7 +4191,23 @@ function updateAllSelectDropdowns() {
     if (cur) mapRoom.value = cur;
   }
 
-  // 8. Update datalist for HOD Add Teacher subject input
+  const mapRoomAlt = document.getElementById('map-room-alt');
+  if (mapRoomAlt) {
+    const cur = mapRoomAlt.value;
+    mapRoomAlt.innerHTML = '<option value="">Auto-assign Lab Room</option>';
+    (appState.classroomsList || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.room;
+      opt.textContent = `${r.room} (${r.type || 'Room'})`;
+      mapRoomAlt.appendChild(opt);
+    });
+    if (cur) mapRoomAlt.value = cur;
+  }
+
+  // 8. Populate registered classes checkboxes in modal-add-subject-mapping
+  populateMappingClassesCheckboxes();
+
+  // 9. Update datalist for HOD Add Teacher subject input
   const subjDatalist = document.getElementById('registered-subjects-list');
   if (subjDatalist) {
     subjDatalist.innerHTML = '';
@@ -3874,6 +4220,76 @@ function updateAllSelectDropdowns() {
   }
 }
 window.updateAllSelectDropdowns = updateAllSelectDropdowns;
+
+// Helper: Populate only registered classes in Add Mapping modal (No Free Text Typing)
+function populateMappingClassesCheckboxes() {
+  const container = document.getElementById('map-classes-container');
+  if (!container) return;
+
+  const classNames = new Set();
+  (appState.studentBatches || []).forEach(b => {
+    if (b.name) classNames.add(b.name.trim());
+  });
+  (appState.classroomsList || []).forEach(r => {
+    if (r.room) classNames.add(r.room.trim());
+  });
+
+  if (classNames.size === 0) {
+    container.innerHTML = `
+      <div class="col-span-2 text-center text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
+        ⚠️ No classes registered yet. Please add classes in <strong>Student Batches</strong> or <strong>Infrastructure</strong> first.
+      </div>
+    `;
+    updateSelectedMappingClassesCount();
+    return;
+  }
+
+  const sortedClasses = Array.from(classNames).sort();
+  let html = '';
+  sortedClasses.forEach(cName => {
+    html += `
+      <label class="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200/90 hover:bg-indigo-50/50 hover:border-indigo-300 transition cursor-pointer text-xs">
+        <input type="checkbox" name="map-assigned-class" value="${escapeHTML(cName)}" onchange="updateSelectedMappingClassesCount()" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+        <span class="font-bold text-slate-800">${escapeHTML(cName)}</span>
+      </label>
+    `;
+  });
+
+  container.innerHTML = html;
+  updateSelectedMappingClassesCount();
+}
+window.populateMappingClassesCheckboxes = populateMappingClassesCheckboxes;
+
+function updateSelectedMappingClassesCount() {
+  const checked = document.querySelectorAll('input[name="map-assigned-class"]:checked');
+  const countEl = document.getElementById('map-selected-count-num');
+  if (countEl) countEl.textContent = checked.length;
+}
+window.updateSelectedMappingClassesCount = updateSelectedMappingClassesCount;
+
+function handleMapFormatChange(val) {
+  const singleContainer = document.getElementById('map-single-quota-container');
+  const integratedContainer = document.getElementById('map-integrated-quota-container');
+  const labBlockContainer = document.getElementById('map-lab-block-container');
+  const quotaInput = document.getElementById('map-quota');
+
+  if (val === 'Theory') {
+    if (singleContainer) singleContainer.classList.remove('hidden');
+    if (integratedContainer) integratedContainer.classList.add('hidden');
+    if (labBlockContainer) labBlockContainer.classList.add('hidden');
+    if (quotaInput) quotaInput.value = '5';
+  } else if (val === 'Lab') {
+    if (singleContainer) singleContainer.classList.remove('hidden');
+    if (integratedContainer) integratedContainer.classList.add('hidden');
+    if (labBlockContainer) labBlockContainer.classList.remove('hidden');
+    if (quotaInput) quotaInput.value = '4';
+  } else if (val === 'Theory + Lab') {
+    if (singleContainer) singleContainer.classList.add('hidden');
+    if (integratedContainer) integratedContainer.classList.remove('hidden');
+    if (labBlockContainer) labBlockContainer.classList.remove('hidden');
+  }
+}
+window.handleMapFormatChange = handleMapFormatChange;
 
 // Dynamic UI Renderers for Admin Subjects & Classrooms with Delete Buttons
 function renderAdminSubjects() {
@@ -4043,42 +4459,86 @@ function renderAdminBatches() {
 // 6. Faculty-Subject-Class Mappings CRUD (With Weekly Periods Quotas)
 function handleAddSubjectMapping(e) {
   e.preventDefault();
-  const teacher = document.getElementById('map-teacher').value.trim();
-  const subject = document.getElementById('map-subject').value.trim();
-  const sectionsStr = document.getElementById('map-sections').value.trim().toUpperCase();
-  const type = document.getElementById('map-type').value;
-  const quota = parseInt(document.getElementById('map-quota').value) || 5;
-  const room = document.getElementById('map-room').value.trim().toUpperCase() || (type === 'Lab' ? 'Lab 1' : 'C204');
+  const teacher = (document.getElementById('map-teacher')?.value || '').trim();
+  const subject = (document.getElementById('map-subject')?.value || '').trim();
+  const type = document.getElementById('map-type')?.value || 'Theory';
 
-  if (!teacher || !subject || !sectionsStr) {
-    showToast('Teacher, Subject, and Assigned Classes are required.', 'error');
+  const checkedBoxes = Array.from(document.querySelectorAll('input[name="map-assigned-class"]:checked'));
+  const sections = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+
+  if (!teacher || !subject || sections.length === 0) {
+    showToast('Teacher, Subject, and at least one Assigned Class are required.', 'error');
     return;
   }
 
-  const sections = sectionsStr.split(',').map(s => s.trim()).filter(Boolean);
+  let quota = 5;
+  let theoryQuota = 0;
+  let labQuota = 0;
+  let labBlockSize = 1;
+  let room = 'C204';
 
-  appState.subjectTeacherMappings = appState.subjectTeacherMappings || [];
-  appState.subjectTeacherMappings.push({
+  if (type === 'Theory + Lab') {
+    theoryQuota = parseInt(document.getElementById('map-theory-quota')?.value) || 3;
+    labQuota = parseInt(document.getElementById('map-lab-quota')?.value) || 4;
+    labBlockSize = parseInt(document.getElementById('map-lab-block-size')?.value) || 2;
+    quota = theoryQuota + labQuota;
+    room = (document.getElementById('map-room-alt')?.value || document.getElementById('map-room')?.value || '').trim() || 'C204 / Lab 1';
+  } else if (type === 'Lab') {
+    quota = parseInt(document.getElementById('map-quota')?.value) || 4;
+    labQuota = quota;
+    labBlockSize = parseInt(document.getElementById('map-lab-block-size')?.value) || 2;
+    room = (document.getElementById('map-room')?.value || '').trim() || 'Lab 1';
+  } else {
+    // Theory
+    quota = parseInt(document.getElementById('map-quota')?.value) || 5;
+    theoryQuota = quota;
+    labBlockSize = 1;
+    room = (document.getElementById('map-room')?.value || '').trim() || 'C204';
+  }
+
+  const mappingObj = {
     id: 'map-' + Date.now(),
     teacher,
     subject,
     type,
     sections,
     quota,
-    room
-  });
+    theoryQuota,
+    labQuota,
+    labBlockSize,
+    room,
+    created_at: new Date().toISOString()
+  };
 
-  saveState();
+  appState.subjectTeacherMappings = appState.subjectTeacherMappings || [];
+  appState.subjectTeacherMappings.push(mappingObj);
+
+  saveState(true);
+
+  // Firestore cloud persistence
+  if (window.FirebaseSync && typeof FirebaseSync.saveDocument === 'function') {
+    FirebaseSync.saveDocument('subject_mappings', mappingObj.id, mappingObj)
+      .catch(e => console.warn('Firestore mapping cloud save:', e.message));
+  }
+
   renderSubjectMappings();
   closeModal('modal-add-subject-mapping');
-  showToast(`Mapping added: ${teacher} ➔ ${subject} (${sections.join(', ')}, ${quota} periods/wk)`, 'success');
+  showToast(`Mapping added: ${teacher} ➔ ${subject} (${sections.join(', ')} • ${quota} periods/wk)`, 'success');
   e.target.reset();
+  if (typeof handleMapFormatChange === 'function') handleMapFormatChange('Theory');
+  if (typeof updateSelectedMappingClassesCount === 'function') updateSelectedMappingClassesCount();
 }
 
 function handleDeleteSubjectMapping(mapId) {
   if (!confirm('Are you sure you want to delete this faculty subject mapping?')) return;
   appState.subjectTeacherMappings = (appState.subjectTeacherMappings || []).filter(m => m.id !== mapId);
-  saveState();
+  saveState(true);
+
+  // Firestore delete
+  if (window.FirebaseSync && typeof FirebaseSync.deleteDocument === 'function') {
+    FirebaseSync.deleteDocument('subject_mappings', mapId).catch(e => console.warn('Firestore mapping delete:', e.message));
+  }
+
   renderSubjectMappings();
   showToast('Mapping deleted.', 'info');
 }
@@ -4099,6 +4559,31 @@ function renderSubjectMappings() {
     const tr = document.createElement('tr');
     tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition';
     const isMultiClass = m.sections.length > 1;
+
+    let typeBadge = '';
+    if (m.type === 'Theory + Lab') {
+      typeBadge = '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">Theory + Lab</span>';
+    } else if (m.type === 'Lab') {
+      typeBadge = '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">Lab Only</span>';
+    } else {
+      typeBadge = '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Theory Only</span>';
+    }
+
+    let quotaDisplay = '';
+    if (m.type === 'Theory + Lab') {
+      quotaDisplay = `
+        <span class="font-bold text-xs bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>
+        <span class="text-[10px] text-slate-500 font-semibold block mt-0.5">${escapeHTML(m.theoryQuota || 0)} Th + ${escapeHTML(m.labQuota || 0)} Lab (${escapeHTML(m.labBlockSize || 2)}p block)</span>
+      `;
+    } else if (m.type === 'Lab') {
+      quotaDisplay = `
+        <span class="font-bold text-xs bg-purple-50 text-purple-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>
+        <span class="text-[10px] text-purple-600 font-semibold block mt-0.5">${escapeHTML(m.labBlockSize || 2)} periods continuous block</span>
+      `;
+    } else {
+      quotaDisplay = `<span class="font-bold text-xs bg-slate-100 text-slate-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>`;
+    }
+
     tr.innerHTML = `
       <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHTML(m.teacher)}</td>
       <td class="py-2.5 px-3">
@@ -4108,14 +4593,14 @@ function renderSubjectMappings() {
       <td class="py-2.5 px-3">
         <div class="flex flex-wrap gap-1 items-center">
           ${m.sections.map(sec => `<span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-200 text-slate-800">${escapeHTML(sec)}</span>`).join('')}
-          ${isMultiClass ? '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full" title="Protected: Zero period collision across these classes">Multi-Class Shared</span>' : ''}
+          ${isMultiClass ? '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full" title="Zero period collision across these classes">Multi-Class Shared</span>' : ''}
         </div>
       </td>
       <td class="py-2.5 px-3">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${m.type === 'Lab' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}">${escapeHTML(m.type || 'Theory')}</span>
+        ${typeBadge}
       </td>
       <td class="py-2.5 px-3 text-center">
-        <span class="font-bold text-xs bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>
+        ${quotaDisplay}
       </td>
       <td class="py-2.5 px-3 text-right">
         <button onclick="handleDeleteSubjectMapping('${escapeHTML(m.id)}')" title="Delete Mapping" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
@@ -4189,12 +4674,54 @@ async function runTimetableGeneration() {
   // sectionDaySubjectCount[(day, section, subject)] = count
   const sectionDaySubjectCount = new Map();
 
-  // 1. Separate Lab courses from Theory courses
-  const labMappings = mappings.filter(m => m.type === 'Lab');
-  const theoryMappings = mappings.filter(m => m.type !== 'Lab');
+  // 1. Separate & Expand Lab and Theory Tasks (Handles Theory + Lab Integrated)
+  const labTasks = [];
+  const theoryTasks = [];
 
-  // Pair valid 2-period continuous blocks: [1,2], [3,4], [5,6]
-  const labBlockPairs = [[1, 2], [3, 4], [5, 6]];
+  mappings.forEach(m => {
+    const secList = Array.isArray(m.sections) ? m.sections : [m.sections];
+    if (m.type === 'Lab') {
+      labTasks.push({
+        teacher: m.teacher,
+        subject: m.subject,
+        sections: secList,
+        quota: m.labQuota || m.quota || 4,
+        blockSize: parseInt(m.labBlockSize) || 2,
+        room: m.room || 'Lab 1'
+      });
+    } else if (m.type === 'Theory + Lab') {
+      labTasks.push({
+        teacher: m.teacher,
+        subject: `${m.subject} (Lab)`,
+        sections: secList,
+        quota: m.labQuota || 4,
+        blockSize: parseInt(m.labBlockSize) || 2,
+        room: (m.room && m.room.includes('Lab')) ? m.room : 'Lab 1'
+      });
+      theoryTasks.push({
+        teacher: m.teacher,
+        subject: `${m.subject} (Theory)`,
+        sections: secList,
+        quota: m.theoryQuota || 3,
+        room: (m.room && !m.room.includes('Lab')) ? m.room : 'C204'
+      });
+    } else {
+      theoryTasks.push({
+        teacher: m.teacher,
+        subject: m.subject,
+        sections: secList,
+        quota: m.quota || m.theoryQuota || 5,
+        room: m.room || 'C204'
+      });
+    }
+  });
+
+  // Helper: Get candidate contiguous period blocks based on block length (1, 2, or 3)
+  const getBlockOptions = (bSize) => {
+    if (bSize === 3) return [[1, 2, 3], [4, 5, 6], [5, 6, 7]];
+    if (bSize === 1) return [[1], [2], [3], [4], [5], [6], [7]];
+    return [[1, 2], [3, 4], [5, 6], [6, 7]]; // default 2
+  };
 
   // PHASE 0: NAAN MUDHALVAN MANDATORY 4-PERIOD SKILL SLOTS (EVERY MONDAY MORNING ACROSS ALL CLASSES)
   const isNaanMudhalvanEnabled = document.getElementById('toggle-naan-mudhalvan')?.checked ?? true;
@@ -4210,15 +4737,17 @@ async function runTimetableGeneration() {
     });
   }
 
-  // PHASE A: SCHEDULE LABS (Hardest constraints)
-  for (const lab of labMappings) {
+  // PHASE A: SCHEDULE CONTINUOUS LABS (1, 2, or 3 Period Blocks)
+  for (const lab of labTasks) {
     for (const sec of lab.sections) {
       if (!sections.includes(sec)) continue;
-      let neededBlocks = Math.floor((lab.quota || 4) / 2);
+      const bSize = lab.blockSize;
+      const neededBlocks = Math.ceil((lab.quota || 4) / bSize);
+      const blockOptions = getBlockOptions(bSize);
 
       for (let b = 0; b < neededBlocks; b++) {
         let placed = false;
-        // Shuffle days to distribute labs nicely
+        // Shuffle days to distribute labs nicely across the week
         const shuffledDays = [...days].sort(() => 0.5 - Math.random());
 
         for (const day of shuffledDays) {
@@ -4230,31 +4759,27 @@ async function runTimetableGeneration() {
           });
           if (dayHasLab) continue;
 
-          for (const [pFirst, pSecond] of labBlockPairs) {
-            const tKey1 = `${day}_${pFirst}_${lab.teacher}`;
-            const tKey2 = `${day}_${pSecond}_${lab.teacher}`;
-            const rKey1 = `${day}_${pFirst}_${lab.room || 'Lab'}`;
-            const rKey2 = `${day}_${pSecond}_${lab.room || 'Lab'}`;
-            const sKey1 = `${day}_${sec}_${pFirst}`;
-            const sKey2 = `${day}_${sec}_${pSecond}`;
+          for (const blockPeriods of blockOptions) {
+            // Check if ALL periods in the block are free
+            const canFit = blockPeriods.every(p => {
+              const tKey = `${day}_${p}_${lab.teacher}`;
+              const rKey = `${day}_${p}_${lab.room || 'Lab 1'}`;
+              const sKey = `${day}_${sec}_${p}`;
+              return !teacherBusy.has(tKey) && !roomBusy.has(rKey) && !sectionSchedule.has(sKey);
+            });
 
-            if (!teacherBusy.has(tKey1) && !teacherBusy.has(tKey2) &&
-                !roomBusy.has(rKey1) && !roomBusy.has(rKey2) &&
-                !sectionSchedule.has(sKey1) && !sectionSchedule.has(sKey2)) {
-
-              // Lock teacher
-              teacherBusy.set(tKey1, lab.teacher);
-              teacherBusy.set(tKey2, lab.teacher);
-              // Lock room
-              roomBusy.set(rKey1, lab.room || 'Lab');
-              roomBusy.set(rKey2, lab.room || 'Lab');
-
-              const slotText = `${lab.subject} (${lab.teacher} • ${lab.room || 'Lab'})`;
-              sectionSchedule.set(sKey1, slotText);
-              sectionSchedule.set(sKey2, slotText);
+            if (canFit) {
+              blockPeriods.forEach(p => {
+                const tKey = `${day}_${p}_${lab.teacher}`;
+                const rKey = `${day}_${p}_${lab.room || 'Lab 1'}`;
+                const sKey = `${day}_${sec}_${p}`;
+                teacherBusy.set(tKey, lab.teacher);
+                roomBusy.set(rKey, lab.room || 'Lab 1');
+                sectionSchedule.set(sKey, `${lab.subject} (${lab.teacher} • ${lab.room || 'Lab 1'})`);
+              });
 
               const currentQuota = sectionSubjectCount.get(`${sec}_${lab.subject}`) || 0;
-              sectionSubjectCount.set(`${sec}_${lab.subject}`, currentQuota + 2);
+              sectionSubjectCount.set(`${sec}_${lab.subject}`, currentQuota + bSize);
               placed = true;
               break;
             }
@@ -4272,10 +4797,10 @@ async function runTimetableGeneration() {
     for (const p of periods) {
       for (const sec of sections) {
         const sKey = `${day}_${sec}_${p}`;
-        if (sectionSchedule.has(sKey)) continue; // already occupied by lab
+        if (sectionSchedule.has(sKey)) continue; // already occupied by lab or mandatory skill slot
 
         // Find applicable subjects for this section that have remaining quota
-        const candidateMappings = theoryMappings.filter(m => {
+        const candidateMappings = theoryTasks.filter(m => {
           if (!m.sections.includes(sec)) return false;
           const assignedCount = sectionSubjectCount.get(`${sec}_${m.subject}`) || 0;
           if (assignedCount >= (m.quota || 5)) return false;
@@ -4312,8 +4837,7 @@ async function runTimetableGeneration() {
           sectionDaySubjectCount.set(`${day}_${sec}_${chosen.subject}`, (sectionDaySubjectCount.get(`${day}_${sec}_${chosen.subject}`) || 0) + 1);
         } else {
           // Free period or secondary allocation
-          // Check if any other general theory subject can be mapped without collision
-          const anyAvailable = theoryMappings.filter(m => {
+          const anyAvailable = theoryTasks.filter(m => {
             if (!m.sections.includes(sec)) return false;
             const tKey = `${day}_${p}_${m.teacher}`;
             return !teacherBusy.has(tKey);

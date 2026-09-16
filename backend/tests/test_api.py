@@ -1,5 +1,6 @@
-﻿import pytest
+import pytest
 import asyncio
+import datetime
 from httpx import AsyncClient, ASGITransport
 import sys
 import os
@@ -113,3 +114,44 @@ async def test_leave_and_substitution_workflow():
         assert res.status_code == 200
         subs = res.json()
         assert len(subs) > 0
+
+@pytest.mark.asyncio
+async def test_duty_report_and_timeliness():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers_teacher = {"Authorization": "Bearer dev-teacher"}
+        duty_payload = {
+            "teacher_name": "Arun Kumar",
+            "teacher_email": "arun@college.edu",
+            "department": "Information Technology",
+            "status": "ON_DUTY"
+        }
+        res = await ac.post("/api/attendance/duty-report", json=duty_payload, headers=headers_teacher)
+        assert res.status_code == 200
+        report = res.json()
+        assert report["status"] == "ON_DUTY"
+        assert report["teacher_email"] == "arun@college.edu"
+
+        # Check retrieval
+        res_get = await ac.get("/api/attendance/duty-report?department=Information%20Technology")
+        assert res_get.status_code == 200
+        reports = res_get.json()
+        assert len(reports) > 0
+        assert any(r["teacher_email"] == "arun@college.edu" for r in reports)
+
+        # Check in with 5-minute grace period (start min: current time)
+        now_dt = datetime.datetime.now()
+        cur_mins = now_dt.hour * 60 + now_dt.minute
+        checkin_payload = {
+            "class_name": "IT-A",
+            "room_code": "C204",
+            "latitude": 12.97161,
+            "longitude": 77.59461,
+            "department": "Information Technology",
+            "scheduled_start_min": cur_mins
+        }
+        res_checkin = await ac.post("/api/attendance/check-in", json=checkin_payload, headers=headers_teacher)
+        assert res_checkin.status_code == 200
+        ci = res_checkin.json()
+        assert ci["success"] is True
+        assert ci["timeliness_status"] == "ON_TIME"
+

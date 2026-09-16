@@ -4,7 +4,8 @@ from app.core.security import get_current_user, require_role
 from app.db.mongo import get_db
 from app.models.attendance import (
     CheckInRequest, CheckInResponse, LiveSessionResponse,
-    TopicEntryRequest, TopicEntryResponse
+    TopicEntryRequest, TopicEntryResponse,
+    DutyReportRequest, DutyReportResponse
 )
 from app.services.geolocation import verify_teacher_location, haversine_distance
 from app.core.websocket_manager import ws_manager
@@ -122,27 +123,47 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
             message=f"Location verification failed: You are {loc_check['distance_meters']}m away from {payload.room_code}. Must be within {max_radius}m."
         )
 
-    # 3. Update Live Class State in DB
+    # 3. Calculate 5-minute grace period timeliness
+    now_local = datetime.datetime.now()
+    cur_mins = now_local.hour * 60 + now_local.minute
+    timeliness_status = "ON_TIME"
+    minutes_late = 0
+    if payload.scheduled_start_min is not None and payload.scheduled_start_min > 0:
+        if cur_mins <= payload.scheduled_start_min + 5:
+            timeliness_status = "ON_TIME"
+            minutes_late = 0
+        else:
+            timeliness_status = "LATE"
+            minutes_late = max(0, cur_mins - payload.scheduled_start_min)
+
+    # 4. Update Live Class State in DB
     teacher_name = current_user.get("name", "Arun Kumar")
     # Find matching session
     session = await db["live_sessions"].find_one({"room": payload.room_code, "class_name": payload.class_name})
     if session:
         await db["live_sessions"].update_one(
             {"_id": session["_id"]},
-            {"$set": {"status": "ACTIVE", "teacher": teacher_name}}
+            {"$set": {
+                "status": "ACTIVE",
+                "teacher": teacher_name,
+                "timeliness_status": timeliness_status,
+                "minutes_late": minutes_late
+            }}
         )
     
-    # 4. Broadcast live update to HOD Monitoring Dashboard via WebSocket!
+    # 5. Broadcast live update to HOD Monitoring Dashboard via WebSocket!
     await ws_manager.broadcast_to_room(payload.department, {
         "type": "STATUS_UPDATE",
         "room": payload.room_code,
         "class_name": payload.class_name,
         "teacher": teacher_name,
         "status": "ACTIVE",
+        "timeliness_status": timeliness_status,
+        "minutes_late": minutes_late,
         "time": datetime.datetime.now().strftime("%I:%M %p")
     })
 
-    # 5. Record verified check-in audit log in db
+    # 6. Record verified check-in audit log in db
     await db["check_ins"].insert_one({
         "user_email": teacher_email,
         "teacher_name": teacher_name,
@@ -152,6 +173,8 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
         "latitude": payload.latitude,
         "longitude": payload.longitude,
         "accuracy_meters": payload.accuracy_meters,
+        "timeliness_status": timeliness_status,
+        "minutes_late": minutes_late,
         "timestamp": now_ts,
         "created_at": datetime.datetime.now(datetime.timezone.utc)
     })
@@ -162,7 +185,9 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
         gps_verified=True,
         distance_meters=loc_check["distance_meters"],
         room_code=payload.room_code,
-        message=f"GPS verified! Checked in to Room {payload.room_code} ({loc_check['distance_meters']}m away)."
+        message=f"GPS verified! Checked in to Room {payload.room_code} ({loc_check['distance_meters']}m away). Status: {timeliness_status}.",
+        timeliness_status=timeliness_status,
+        minutes_late=minutes_late
     )
 
 @router.post("/topics", response_model=TopicEntryResponse)
@@ -272,4 +297,91 @@ async def delete_week_topics(
         "deleted_count": result.deleted_count,
         "message": f"Successfully deleted {result.deleted_count} topic records for week {week_key}."
     }
+
+@router.post("/duty-report", response_model=DutyReportResponse)
+async def report_on_duty(payload: DutyReportRequest, db = Depends(get_db), current_user = Depends(get_current_user)):
+    now = datetime.datetime.now()
+    cur_mins = now.hour * 60 + now.minute
+    date_str = payload.date or now.strftime("%Y-%m-%d")
+    reported_at = now.strftime("%I:%M %p")
+
+    # Duty reporting rules:
+    # Operating college start: 09:00 AM (540 mins)
+    # If turned ON after 09:00 AM, teacher is marked LATE COMER
+    # If turned ON after 09:50 AM (Period 1 end), first period was missed
+    is_late_comer = False
+    first_period_missed = False
+    if payload.status == "ON_DUTY" and cur_mins > 540:
+        is_late_comer = True
+        if cur_mins > 590:
+            first_period_missed = True
+
+    teacher_name = payload.teacher_name or current_user.get("name", "Faculty Member")
+    teacher_email = payload.teacher_email or current_user.get("email", "")
+    department = payload.department or current_user.get("department", "Information Technology")
+
+    doc = {
+        "_id": str(uuid.uuid4()),
+        "teacher_name": teacher_name,
+        "teacher_email": teacher_email,
+        "department": department,
+        "status": payload.status,
+        "is_late_comer": is_late_comer,
+        "first_period_missed": first_period_missed,
+        "reported_at": reported_at,
+        "date": date_str,
+        "timestamp": now.timestamp()
+    }
+
+    # Upsert per teacher per date
+    query = {"teacher_email": doc["teacher_email"], "date": date_str}
+    existing = await db["duty_reports"].find_one(query)
+    if existing:
+        await db["duty_reports"].update_one({"_id": existing["_id"]}, {"$set": doc})
+        doc["_id"] = existing["_id"]
+    else:
+        await db["duty_reports"].insert_one(doc)
+
+    # Broadcast to HOD via WebSocket
+    await ws_manager.broadcast_to_room(department, {
+        "type": "DUTY_REPORT_UPDATE",
+        "duty_report": {
+            "teacher_name": doc["teacher_name"],
+            "teacher_email": doc["teacher_email"],
+            "department": doc["department"],
+            "status": doc["status"],
+            "is_late_comer": doc["is_late_comer"],
+            "first_period_missed": doc["first_period_missed"],
+            "reported_at": doc["reported_at"],
+            "date": doc["date"]
+        }
+    })
+
+    msg = f"Duty status updated to {doc['status']}."
+    if is_late_comer:
+        msg += " Flagged as Late Comer (reported after period start)."
+
+    return DutyReportResponse(
+        id=str(doc["_id"]),
+        teacher_name=doc["teacher_name"],
+        teacher_email=doc["teacher_email"],
+        department=doc["department"],
+        status=doc["status"],
+        is_late_comer=doc["is_late_comer"],
+        first_period_missed=doc["first_period_missed"],
+        reported_at=doc["reported_at"],
+        date=doc["date"],
+        message=msg
+    )
+
+@router.get("/duty-report", response_model=List[DutyReportResponse])
+async def get_duty_reports(date: Optional[str] = None, department: Optional[str] = None, db = Depends(get_db)):
+    query = {}
+    if date:
+        query["date"] = date
+    if department:
+        query["department"] = department
+    docs = await db["duty_reports"].find(query).sort("timestamp", -1).to_list(200)
+    return docs
+
 

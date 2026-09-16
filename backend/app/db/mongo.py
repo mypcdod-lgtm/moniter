@@ -11,8 +11,12 @@ class MockCollection:
         self.name = name
         self._data: List[Dict[str, Any]] = []
 
-    async def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        for item in self._data:
+    async def find_one(self, query: Dict[str, Any], sort: Optional[Any] = None) -> Optional[Dict[str, Any]]:
+        items_to_search = self._data
+        if sort and isinstance(sort, (list, tuple)) and len(sort) > 0:
+            sort_key, sort_dir = sort[0]
+            items_to_search = sorted(self._data, key=lambda x: x.get(sort_key, 0), reverse=(sort_dir == -1))
+        for item in items_to_search:
             match = True
             for k, v in query.items():
                 if k == "$or":

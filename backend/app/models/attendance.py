@@ -10,6 +10,7 @@ class CheckInRequest(BaseModel):
     timestamp: Optional[float] = None
     is_mock: Optional[bool] = False
     department: str = "Information Technology"
+    scheduled_start_min: Optional[int] = None
 
 class CheckInResponse(BaseModel):
     success: bool
@@ -18,6 +19,34 @@ class CheckInResponse(BaseModel):
     distance_meters: float
     room_code: str
     message: str
+    timeliness_status: Optional[str] = "ON_TIME"
+    minutes_late: Optional[int] = 0
+
+class DutyReportRequest(BaseModel):
+    teacher_name: str
+    teacher_email: str
+    department: Optional[str] = "Information Technology"
+    status: str = "ON_DUTY"  # ON_DUTY or OFF_DUTY
+    date: Optional[str] = None
+    timestamp: Optional[float] = None
+
+class DutyReportResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    id: str = ""
+    teacher_name: str
+    teacher_email: str
+    department: str = "Information Technology"
+    status: str = "ON_DUTY"
+    is_late_comer: bool = False
+    first_period_missed: bool = False
+    reported_at: str = ""
+    date: str = ""
+    message: str = ""
+
+    def __init__(self, **data):
+        if "_id" in data and "id" not in data:
+            data["id"] = str(data["_id"])
+        super().__init__(**data)
 
 class LiveSessionResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)

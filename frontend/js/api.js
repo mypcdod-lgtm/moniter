@@ -81,6 +81,8 @@ class ApiClient {
   // Live Attendance & GPS Check-In
   static getLiveSessions(dept = "") { return this.request(`/attendance/live?department=${encodeURIComponent(dept)}`); }
   static checkIn(checkInData) { return this.request("/attendance/check-in", { method: "POST", body: JSON.stringify(checkInData) }); }
+  static reportDuty(data) { return this.request("/attendance/duty-report", { method: "POST", body: JSON.stringify(data) }); }
+  static getDutyReports(date = "", dept = "") { return this.request(`/attendance/duty-report?date=${encodeURIComponent(date)}&department=${encodeURIComponent(dept)}`); }
 
   // Leaves
   static getLeaves(dept = "") { return this.request(`/leaves?department=${encodeURIComponent(dept)}`); }
