@@ -1,5 +1,5 @@
-// FOLIO Service Worker v22.0.0 (Windows Desktop & Mobile PWA)
-const CACHE_NAME = "folio-v22";
+// FOLIO Service Worker v23.0.0 (Enterprise Security Hardened)
+const CACHE_NAME = "folio-v23";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -12,7 +12,8 @@ const STATIC_ASSETS = [
   "./frontend/icons/icon-512x512.png",
   "./frontend/js/api.js",
   "./frontend/js/websocket.js",
-  "./frontend/js/geolocation.js"
+  "./frontend/js/geolocation.js",
+  "./frontend/js/firebase.js"
 ];
 
 // Install: Cache all core assets

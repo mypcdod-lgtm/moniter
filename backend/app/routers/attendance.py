@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from app.core.security import get_current_user
 from app.db.mongo import get_db
@@ -19,6 +19,30 @@ async def get_live_sessions(department: Optional[str] = "Information Technology"
 
 @router.post("/check-in", response_model=CheckInResponse)
 async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), current_user = Depends(get_current_user)):
+    # 0. Anti-Spoofing Validations: Accuracy guard (<= 100m) and timestamp freshness (<= 60s)
+    if payload.accuracy_meters is not None and payload.accuracy_meters > 100.0:
+        return CheckInResponse(
+            success=False,
+            status="REJECTED",
+            gps_verified=False,
+            distance_meters=9999.0,
+            room_code=payload.room_code,
+            message=f"GPS fix accuracy too low (±{payload.accuracy_meters:.1f}m). High accuracy location fix (<= 100m) is strictly required."
+        )
+
+    if payload.timestamp is not None:
+        now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        ts = payload.timestamp / 1000.0 if payload.timestamp > 1e11 else payload.timestamp
+        if abs(now_ts - ts) > 60.0:
+            return CheckInResponse(
+                success=False,
+                status="REJECTED",
+                gps_verified=False,
+                distance_meters=9999.0,
+                room_code=payload.room_code,
+                message="GPS timestamp is stale (> 60 seconds old). Replay attack prevented. Live GPS required."
+            )
+
     # 1. Lookup classroom GPS coordinates
     room = await db["rooms"].find_one({"room_code": payload.room_code.upper()})
     room_lat = room["latitude"] if room else settings.DEFAULT_LATITUDE

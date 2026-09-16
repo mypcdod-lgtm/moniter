@@ -94,8 +94,31 @@ window.FirebaseDb = {
       delete cleanState.currentRole;
       delete cleanState.activeTab;
 
+      // CRITICAL SECURITY HARDENING: Strip plaintext passwords before sending to Firestore
+      if (Array.isArray(cleanState.users)) {
+        cleanState.users = cleanState.users.map(u => {
+          const sanitized = { ...u };
+          delete sanitized.password;
+          return sanitized;
+        });
+      }
+      if (Array.isArray(cleanState.hodsList)) {
+        cleanState.hodsList = cleanState.hodsList.map(h => {
+          const sanitized = { ...h };
+          delete sanitized.password;
+          return sanitized;
+        });
+      }
+      if (Array.isArray(cleanState.teachersList)) {
+        cleanState.teachersList = cleanState.teachersList.map(t => {
+          const sanitized = { ...t };
+          delete sanitized.password;
+          return sanitized;
+        });
+      }
+
       await setDoc(doc(db, "campus_system", "state"), cleanState, { merge: true });
-      console.log("☁️ State synced to Firebase Cloud Firestore successfully!");
+      console.log("☁️ State synced to Firebase Cloud Firestore securely (all passwords stripped)!");
       return true;
     } catch (err) {
       console.warn("⚠️ Firestore cloud sync notice:", err.message);

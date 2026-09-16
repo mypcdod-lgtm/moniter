@@ -1,4 +1,4 @@
-﻿// Browser Geolocation API Helper (100% FREE - Device GPS Based)
+// Browser Geolocation API Helper (100% FREE - Device GPS Based)
 class GeoLocationHelper {
   static isSupported() {
     return "geolocation" in navigator;
@@ -18,10 +18,26 @@ class GeoLocationHelper {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const accuracy = position.coords.accuracy; // in meters
+          const timestamp = position.timestamp || Date.now();
+          const ageSeconds = Math.abs(Date.now() - timestamp) / 1000;
+
+          // ANTI-SPOOFING & PRECISION GUARD: Reject low-accuracy or stale fixes
+          if (accuracy > 100) {
+            reject(new Error(`GPS signal is too weak (accuracy ±${Math.round(accuracy)}m). You must have high-accuracy device GPS enabled (under ±100m) to check in.`));
+            return;
+          }
+
+          if (ageSeconds > 60) {
+            reject(new Error('GPS location fix is stale (older than 60s). Please re-acquire a live GPS fix.'));
+            return;
+          }
+
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy // in meters
+            accuracy: accuracy,
+            timestamp: timestamp
           });
         },
         (error) => {
@@ -46,9 +62,9 @@ class GeoLocationHelper {
 
   static async performTeacherCheckIn(className, roomCode, department = "Information Technology") {
     try {
-      // 1. Fetch live GPS coordinates from device
+      // 1. Fetch live verified GPS coordinates from device
       const coords = await this.getCurrentPosition();
-      console.log(`[GPS] Acquired coordinates: lat=${coords.latitude}, lon=${coords.longitude}, accuracy=${coords.accuracy}m`);
+      console.log(`[GPS Verified] lat=${coords.latitude}, lon=${coords.longitude}, accuracy=±${Math.round(coords.accuracy)}m, timestamp=${coords.timestamp}`);
 
       // 2. Submit to backend for Haversine distance verification against room coords
       const result = await ApiClient.checkIn({
@@ -57,6 +73,7 @@ class GeoLocationHelper {
         latitude: coords.latitude,
         longitude: coords.longitude,
         accuracy_meters: coords.accuracy,
+        timestamp: coords.timestamp,
         department: department
       });
 

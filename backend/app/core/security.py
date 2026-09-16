@@ -44,7 +44,7 @@ async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depen
 
     token = creds.credentials
 
-    # Fast local developer / test bypass
+    # Fast local developer / test bypass (ONLY permitted if DEV_MODE is True)
     if settings.DEV_MODE and token.startswith("dev-"):
         role = token.replace("dev-", "").lower()
         if role == "admin":
@@ -54,10 +54,37 @@ async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depen
         elif role == "teacher":
             return {"uid": "usr-teacher-1", "email": "arun@college.edu", "name": "Arun Kumar", "role": "teacher", "department": "Information Technology"}
 
+    if token.startswith("dev-") and not settings.DEV_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Developer bypass tokens are strictly forbidden in production mode."
+        )
+
     if firebase_initialized:
         try:
             from firebase_admin import auth
             decoded_token = auth.verify_id_token(token)
+            
+            # Resolve role from claims or database if not directly in token
+            if "role" not in decoded_token:
+                try:
+                    from app.db.mongo import db
+                    user_doc = await db["users"].find_one({
+                        "$or": [
+                            {"firebase_uid": decoded_token.get("uid")},
+                            {"email": (decoded_token.get("email") or "").lower()}
+                        ]
+                    })
+                    if user_doc:
+                        decoded_token["role"] = user_doc.get("role", "teacher")
+                        decoded_token["department"] = user_doc.get("department", "Information Technology")
+                        decoded_token["name"] = user_doc.get("name", decoded_token.get("name", "User"))
+                except Exception:
+                    pass
+            
+            if "role" not in decoded_token:
+                decoded_token["role"] = "teacher"
+                
             return decoded_token
         except Exception as e:
             raise HTTPException(
@@ -76,12 +103,12 @@ async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depen
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Firebase authentication is not configured on server."
+        detail="Firebase Cloud authentication service is required but not configured."
     )
 
 def require_role(allowed_roles: List[str]):
     async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
-        user_role = current_user.get("role", "").lower()
+        user_role = (current_user.get("role") or current_user.get("claims", {}).get("role", "")).lower()
         if user_role not in [r.lower() for r in allowed_roles]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

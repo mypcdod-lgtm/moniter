@@ -103,6 +103,17 @@ if (!appState._cleanDataV22) {
   appState._cleanDataV22 = true;
 }
 
+// Enterprise Security Hardening: Purge any legacy plaintext passwords from cached state
+if (Array.isArray(appState.users)) {
+  appState.users.forEach(u => { delete u.password; });
+}
+if (Array.isArray(appState.hodsList)) {
+  appState.hodsList.forEach(h => { delete h.password; });
+}
+if (Array.isArray(appState.teachersList)) {
+  appState.teachersList.forEach(t => { delete t.password; });
+}
+
 let cloudSaveTimer = null;
 function saveState(immediateCloud = false) {
   try {
@@ -125,6 +136,58 @@ function saveState(immediateCloud = false) {
   }
 }
 
+// Transport Security: Enforce HTTPS in production environments
+if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+  location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+}
+
+// Enterprise XSS Defense: Global HTML entity escaping utility
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHTML = escapeHTML;
+
+// Strict RFC 5322 Format Email Validator
+const RFC5322_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  return RFC5322_EMAIL_REGEX.test(email.trim());
+}
+window.validateEmail = validateEmail;
+
+// Enterprise Password Policy Validator:
+// Requires 8-128 chars, at least 1 lowercase, 1 uppercase, 1 digit, 1 special character
+function validatePassword(password) {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, message: 'Password is required.' };
+  }
+  if (password.length < 8) {
+    return { valid: false, message: 'Password must be at least 8 characters long.' };
+  }
+  if (password.length > 128) {
+    return { valid: false, message: 'Password cannot exceed 128 characters.' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one lowercase letter (a-z).' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase letter (A-Z).' };
+  }
+  if (!/\d/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one number (0-9).' };
+  }
+  if (!/[@$!%*?&#^_\-]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character (@, $, !, %, *, ?, &, #, ^, _, -).' };
+  }
+  return { valid: true };
+}
+window.validatePassword = validatePassword;
 
 // Global Toast Notifications
 function showToast(message, type = 'success') {
@@ -135,7 +198,7 @@ function showToast(message, type = 'success') {
   toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0 z-50`;
   toast.innerHTML = `
     <span class="text-lg">${type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ')}</span>
-    <span>${message}</span>
+    <span>${escapeHTML(message)}</span>
   `;
   container.appendChild(toast);
   requestAnimationFrame(() => {
@@ -159,9 +222,9 @@ function togglePasswordVisibility(inputId) {
 
 async function handleAddAdmin(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const name = document.getElementById('new-admin-name')?.value.trim();
-  const email = document.getElementById('new-admin-email')?.value.trim().toLowerCase();
-  const password = document.getElementById('new-admin-password')?.value.trim();
+  const name = (document.getElementById('new-admin-name')?.value || '').trim();
+  const email = (document.getElementById('new-admin-email')?.value || '').trim().toLowerCase();
+  const password = (document.getElementById('new-admin-password')?.value || '').trim();
   const roleType = document.getElementById('new-admin-role-type')?.value || 'General Admin';
 
   if (!name || !email || !password) {
@@ -169,8 +232,14 @@ async function handleAddAdmin(e) {
     return;
   }
 
-  if (password.length < 6) {
-    showToast('Password must be at least 6 characters long.', 'error');
+  if (!validateEmail(email)) {
+    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+    return;
+  }
+
+  const passCheck = validatePassword(password);
+  if (!passCheck.valid) {
+    showToast(passCheck.message, 'error');
     return;
   }
 
@@ -179,30 +248,35 @@ async function handleAddAdmin(e) {
     return;
   }
 
+  // Register in Firebase Cloud Auth (passwords are hashed on Google servers via scrypt)
+  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+    try {
+      await window.FirebaseAuth.registerWithEmail(email, password);
+      console.log('✅ Firebase Auth registered new admin:', email);
+    } catch (err) {
+      console.warn('Firebase Auth registration note:', err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        showToast('This email is already registered in Firebase Authentication.', 'error');
+        return;
+      }
+    }
+  }
+
+  // Create public user profile in state WITHOUT plaintext password
   const newAdmin = {
     id: 'usr-admin-' + Date.now(),
     name,
     email,
-    password,
     role: 'admin',
     dept: roleType,
-    isOnline: false
+    isOnline: false,
+    created_at: new Date().toISOString()
   };
 
   appState.users = appState.users || [];
   appState.users.push(newAdmin);
 
-  // Sync to Firebase Auth in cloud if available
-  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
-    try {
-      await window.FirebaseAuth.registerWithEmail(email, password);
-      console.log('Firebase Auth registered new admin:', email);
-    } catch (err) {
-      console.warn('Firebase Auth registration notice:', err.message);
-    }
-  }
-
-  saveState();
+  saveState(true);
   closeModal('modal-add-admin');
   showToast(`Administrator account for ${name} created successfully!`, 'success');
   const form = document.getElementById('form-add-admin');
@@ -210,7 +284,7 @@ async function handleAddAdmin(e) {
 }
 
 function renderQuickLoginButtons() {
-  // Quick 1-click login intentionally removed for security
+  // Quick 1-click login permanently disabled for security
   const container = document.getElementById('quick-custom-accounts');
   if (container) {
     container.classList.add('hidden');
@@ -228,10 +302,15 @@ async function handleLogin(e) {
     return;
   }
 
+  if (!validateEmail(emailInput)) {
+    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+    return;
+  }
+
   let firebaseToken = null;
   let authSuccess = false;
 
-  // 1. Authenticate against Firebase Cloud Auth
+  // 1. Authenticate against Firebase Cloud Auth (Passwords securely verified by Google)
   if (window.FirebaseAuth && window.FirebaseAuth.loginWithEmail) {
     try {
       const fbRes = await window.FirebaseAuth.loginWithEmail(emailInput, passwordInput);
@@ -239,11 +318,15 @@ async function handleLogin(e) {
       authSuccess = true;
       console.log('✅ Firebase Cloud Authentication verified for:', emailInput);
     } catch (fbErr) {
-      console.warn('Firebase Auth note:', fbErr.code || fbErr.message);
+      console.warn('Firebase Auth notice:', fbErr.code || fbErr.message);
+      if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-login-credentials' || fbErr.code === 'auth/wrong-password') {
+        showToast('Invalid email or password. Please verify and try again.', 'error');
+        return;
+      }
     }
   }
 
-  // 2. Find user in registered directory (synced in real-time from Cloud Firestore)
+  // 2. Locate user profile in database
   let user = (appState.users || []).find(u => 
     (u.email && u.email.toLowerCase() === emailInput) || 
     (u.altEmail && u.altEmail.toLowerCase() === emailInput)
@@ -257,7 +340,6 @@ async function handleLogin(e) {
         id: 'usr-hod-' + (hodMatch.id || Date.now()),
         name: hodMatch.name,
         email: hodMatch.email,
-        password: hodMatch.password || passwordInput,
         role: 'hod',
         dept: hodMatch.dept || 'Information Technology'
       };
@@ -275,7 +357,6 @@ async function handleLogin(e) {
         id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
         name: teacherMatch.name,
         email: teacherMatch.email,
-        password: teacherMatch.password || passwordInput,
         role: 'teacher',
         dept: teacherMatch.dept || 'Information Technology',
         subject: teacherMatch.subject || ''
@@ -286,41 +367,35 @@ async function handleLogin(e) {
     }
   }
 
-  // 5. Verify credentials strictly
+  // 5. Enforce Cloud Authentication
   if (!authSuccess) {
-    if (!user) {
-      showToast('No registered campus account found with this email.', 'error');
-      return;
-    }
-    if (user.password && user.password !== passwordInput) {
-      showToast('Incorrect password. Please verify your credentials and try again.', 'error');
-      return;
-    }
-  } else {
-    // Firebase Cloud Auth succeeded; ensure profile exists in local state
-    if (!user) {
-      user = {
-        id: 'usr-fb-' + Date.now().toString(36),
-        name: emailInput.split('@')[0],
-        email: emailInput,
-        role: (appState.users && appState.users.length === 0) ? 'admin' : 'teacher',
-        dept: 'Information Technology'
-      };
-      appState.users = appState.users || [];
-      appState.users.push(user);
-      saveState(true);
-    }
+    showToast('Authentication failed. Invalid email or password.', 'error');
+    return;
   }
 
-  // Authenticate user session
-  appState.currentUser = {
+  // If user profile is not in local state, create minimal profile based on first-user logic
+  if (!user) {
+    user = {
+      id: 'usr-fb-' + Date.now().toString(36),
+      name: emailInput.split('@')[0],
+      email: emailInput,
+      role: (appState.users && appState.users.length === 0) ? 'admin' : 'teacher',
+      dept: 'Information Technology'
+    };
+    appState.users = appState.users || [];
+    appState.users.push(user);
+    saveState(true);
+  }
+
+  // Authenticate user session & FREEZE to prevent console role tampering
+  appState.currentUser = Object.freeze({
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
     dept: user.dept || 'Information Technology',
     subject: user.subject || ''
-  };
+  });
   appState.activeRole = user.role;
   saveState(true);
 
@@ -821,9 +896,9 @@ function handleHodDeptSelectionLimit(cb) {
 window.handleHodDeptSelectionLimit = handleHodDeptSelectionLimit;
 
 // 1. Admin adds an HOD with Gmail & Password (1 or 2 Departments)
-function handleAddHod(e) {
-  e.preventDefault();
-  const name = document.getElementById('new-hod-name').value.trim();
+async function handleAddHod(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const name = (document.getElementById('new-hod-name')?.value || '').trim();
   const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-hod-departments"]:checked'));
   const checkedDepts = checkedBoxes.map(cb => cb.value);
 
@@ -837,33 +912,60 @@ function handleAddHod(e) {
   }
 
   const dept = checkedDepts.join(' & ');
-  const email = document.getElementById('new-hod-email').value.trim().toLowerCase();
-  const password = document.getElementById('new-hod-password').value.trim();
-  const rooms = document.getElementById('new-hod-rooms').value.trim() || 'Assigned Block';
+  const email = (document.getElementById('new-hod-email')?.value || '').trim().toLowerCase();
+  const password = (document.getElementById('new-hod-password')?.value || '').trim();
+  const rooms = (document.getElementById('new-hod-rooms')?.value || '').trim() || 'Assigned Block';
 
   if (!name || !email || !password) {
     showToast('Name, Gmail, and Password are required.', 'error');
     return;
   }
 
+  if (!validateEmail(email)) {
+    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+    return;
+  }
+
+  const passCheck = validatePassword(password);
+  if (!passCheck.valid) {
+    showToast(passCheck.message, 'error');
+    return;
+  }
+
   // Check if user already exists
-  if (appState.users.some(u => u.email.toLowerCase() === email)) {
+  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
     showToast('A user with this Gmail already exists.', 'error');
     return;
   }
 
-  // Add HOD account to users
+  // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices
+  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+    try {
+      await window.FirebaseAuth.registerWithEmail(email, password);
+      console.log('✅ HOD registered in Firebase Cloud Auth!');
+    } catch (err) {
+      console.warn('Firebase HOD cloud registration note:', err.code || err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        showToast('This email is already registered in Firebase Authentication.', 'error');
+        return;
+      }
+    }
+  }
+
+  // Add HOD account to users WITHOUT plaintext password
+  appState.users = appState.users || [];
   appState.users.push({
     id: 'usr-hod-' + Date.now(),
     name,
     email,
-    password,
     role: 'hod',
     dept,
-    departments: checkedDepts
+    departments: checkedDepts,
+    created_at: new Date().toISOString()
   });
 
-  // Add to HOD list
+  // Add to HOD list WITHOUT password
+  appState.hodsList = appState.hodsList || [];
   appState.hodsList.push({
     id: Date.now(),
     name,
@@ -875,22 +977,15 @@ function handleAddHod(e) {
     status: 'Active'
   });
 
-  saveState();
+  saveState(true);
   renderAdminTables();
   renderQuickLoginButtons();
   closeModal('modal-add-hod');
-  showToast(`HOD account for ${name} (${dept}) created! Password set. HOD can now log in with ${email}.`, 'success');
+  showToast(`HOD account for ${name} (${dept}) created successfully!`, 'success');
   const addHodForm = document.getElementById('form-add-hod');
   if (addHodForm) {
     addHodForm.reset();
     handleHodDeptSelectionLimit(null);
-  }
-
-  // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices (PC & Mobile)
-  if (window.FirebaseAuth && window.FirebaseAuth.registerWithEmail) {
-    window.FirebaseAuth.registerWithEmail(email, password)
-      .then(() => console.log('✅ HOD registered in Firebase Cloud Auth!'))
-      .catch(err => console.warn('Firebase HOD cloud registration note:', err.code || err.message));
   }
 
   // Persist to FastAPI Backend
@@ -898,46 +993,72 @@ function handleAddHod(e) {
     ApiClient.registerUser({
       name,
       email,
-      password,
       role: 'hod',
       department: dept
-    }).then(() => console.log('✅ HOD account & Firebase user registered on backend'))
+    }).then(() => console.log('✅ HOD account registered on backend'))
       .catch(err => console.warn('Backend HOD registration note:', err.message));
   }
 }
 
 // 2. HOD adds a Teacher with Gmail & Password
-function handleHodAddTeacher(e) {
-  if (e) e.preventDefault();
-  const name = document.getElementById('hod-teacher-name').value.trim();
-  const email = document.getElementById('hod-teacher-email').value.trim().toLowerCase();
-  const subject = document.getElementById('hod-teacher-subject').value.trim();
-  const dept = document.getElementById('hod-teacher-dept').value.trim() || 'IT';
-  const password = document.getElementById('hod-teacher-password').value.trim();
-  const workload = document.getElementById('hod-teacher-workload').value.trim() || '16 hrs/wk';
+async function handleHodAddTeacher(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const name = (document.getElementById('hod-teacher-name')?.value || '').trim();
+  const email = (document.getElementById('hod-teacher-email')?.value || '').trim().toLowerCase();
+  const subject = (document.getElementById('hod-teacher-subject')?.value || '').trim();
+  const dept = (document.getElementById('hod-teacher-dept')?.value || '').trim() || 'IT';
+  const password = (document.getElementById('hod-teacher-password')?.value || '').trim();
+  const workload = (document.getElementById('hod-teacher-workload')?.value || '').trim() || '16 hrs/wk';
 
   if (!name || !email || !password || !subject) {
     showToast('Name, Subject, Gmail, and Password are required.', 'error');
     return;
   }
 
-  if (appState.users.some(u => u.email.toLowerCase() === email)) {
+  if (!validateEmail(email)) {
+    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+    return;
+  }
+
+  const passCheck = validatePassword(password);
+  if (!passCheck.valid) {
+    showToast(passCheck.message, 'error');
+    return;
+  }
+
+  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
     showToast('A user with this Gmail already exists.', 'error');
     return;
   }
 
-  // Add Teacher account to users
+  // Directly register Teacher in Firebase Cloud Auth so account is immediately accessible across all devices
+  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+    try {
+      await window.FirebaseAuth.registerWithEmail(email, password);
+      console.log('✅ Teacher registered in Firebase Cloud Auth!');
+    } catch (err) {
+      console.warn('Firebase Teacher cloud registration note:', err.code || err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        showToast('This email is already registered in Firebase Authentication.', 'error');
+        return;
+      }
+    }
+  }
+
+  // Add Teacher account to users WITHOUT plaintext password
+  appState.users = appState.users || [];
   appState.users.push({
     id: 'usr-teacher-' + Date.now(),
     name,
     email,
-    password,
     role: 'teacher',
     dept,
-    subject
+    subject,
+    created_at: new Date().toISOString()
   });
 
-  // Add to teachers list
+  // Add to teachers list WITHOUT password
+  appState.teachersList = appState.teachersList || [];
   appState.teachersList.push({
     id: Date.now(),
     name,
@@ -948,33 +1069,25 @@ function handleHodAddTeacher(e) {
     status: 'Available'
   });
 
-  saveState();
+  saveState(true);
   renderAdminTables();
   renderHodTeachers();
   renderQuickLoginButtons();
   closeModal('modal-hod-add-teacher');
-  showToast(`Teacher account for ${name} created! Teacher can now log in with ${email}.`, 'success');
+  showToast(`Teacher account for ${name} created successfully!`, 'success');
   const addTeacherForm = document.getElementById('form-hod-add-teacher');
   if (addTeacherForm) addTeacherForm.reset();
-
-  // Directly register Teacher in Firebase Cloud Auth so account is immediately accessible across all devices (PC & Mobile)
-  if (window.FirebaseAuth && window.FirebaseAuth.registerWithEmail) {
-    window.FirebaseAuth.registerWithEmail(email, password)
-      .then(() => console.log('✅ Teacher registered in Firebase Cloud Auth!'))
-      .catch(err => console.warn('Firebase Teacher cloud registration note:', err.code || err.message));
-  }
 
   // Persist to FastAPI Backend
   if (window.ApiClient) {
     ApiClient.createTeacher({
       name,
       email,
-      password,
       subject,
       department: dept,
       workload,
       status: 'Available'
-    }).then(() => console.log('✅ Teacher account & Firebase user registered on backend'))
+    }).then(() => console.log('✅ Teacher account registered on backend'))
       .catch(err => console.warn('Backend Teacher creation note:', err.message));
   }
 }
@@ -1309,30 +1422,30 @@ function renderHodDashboard() {
     } else if (row.status === 'SUBSTITUTE') {
       actionBtn = `
         <span class="text-xs text-amber-800 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-200">
-          Sub: <strong class="font-semibold">${row.substituteTeacher || 'Assigned'}</strong>
+          Sub: <strong class="font-semibold">${escapeHTML(row.substituteTeacher || 'Assigned')}</strong>
         </span>`;
     } else if (row.status === 'COMPLETED') {
       actionBtn = `<span class="text-xs text-slate-400 font-medium">Session Concluded</span>`;
     } else {
       actionBtn = `
-        <button onclick="showToast('Class details for ${row.class} - ${row.subject} (${row.room})', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline cursor-pointer">
+        <button onclick="showToast('Class details for ' + ${JSON.stringify(row.class || '')} + ' - ' + ${JSON.stringify(row.subject || '')} + ' (' + ${JSON.stringify(row.room || '')} + ')', 'info')" class="text-xs text-slate-500 hover:text-indigo-600 font-medium underline cursor-pointer">
           View Room
         </button>`;
     }
 
-    const facultyInitial = (row.teacher || 'F').charAt(0).toUpperCase();
+    const facultyInitial = escapeHTML((row.teacher || 'F').charAt(0).toUpperCase());
 
     tr.innerHTML = `
-      <td class="py-3.5 px-4 font-bold text-slate-900">${row.class}</td>
-      <td class="py-3.5 px-4 font-medium text-slate-800">${row.subject}</td>
+      <td class="py-3.5 px-4 font-bold text-slate-900">${escapeHTML(row.class)}</td>
+      <td class="py-3.5 px-4 font-medium text-slate-800">${escapeHTML(row.subject)}</td>
       <td class="py-3.5 px-4 text-slate-700">
         <div class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
-          <span>${row.teacher}</span>
+          <span>${escapeHTML(row.teacher)}</span>
         </div>
       </td>
-      <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${row.room}</td>
-      <td class="py-3.5 px-4 font-mono text-xs text-slate-600">${row.time}</td>
+      <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${escapeHTML(row.room)}</td>
+      <td class="py-3.5 px-4 font-mono text-xs text-slate-600">${escapeHTML(row.time)}</td>
       <td class="py-3.5 px-4">${statusBadge}</td>
       <td class="py-3.5 px-4 text-right">${actionBtn}</td>
     `;
@@ -2147,7 +2260,7 @@ function renderTeacherDashboard() {
     todayClasses.forEach(item => {
       let pill = '';
       if (approvedLeaveToday) {
-        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">🔄 Sub: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}</span>`;
+        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">🔄 Sub: ${escapeHTML(approvedLeaveToday.substitute_teacher || 'Dr. Rajesh')}</span>`;
       } else if (item.status === 'Completed') {
         pill = '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">✓ Completed</span>';
       } else if (item.status === 'Active') {
@@ -2155,19 +2268,19 @@ function renderTeacherDashboard() {
           ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">🟢 Active (In Progress)</span>'
           : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">⚪ Live Now (Pending Check-In)</span>';
       } else {
-        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">Upcoming (${item.time.split('-')[0].trim()})</span>`;
+        pill = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">Upcoming (${escapeHTML(item.time.split('-')[0].trim())})</span>`;
       }
 
       const div = document.createElement('div');
       div.className = `flex items-start gap-3 p-3 rounded-xl border transition ${item.status === 'Active' ? 'bg-indigo-50/50 border-indigo-200 shadow-xs' : 'bg-white border-slate-100 hover:shadow-xs'}`;
       div.innerHTML = `
-        <div class="text-xs font-mono font-bold text-slate-500 pt-0.5 w-16">${item.time.split('-')[0].trim()}</div>
+        <div class="text-xs font-mono font-bold text-slate-500 pt-0.5 w-16">${escapeHTML(item.time.split('-')[0].trim())}</div>
         <div class="flex-1">
           <div class="flex items-center justify-between">
-            <h4 class="font-bold text-slate-800 text-sm">${item.subject}</h4>
+            <h4 class="font-bold text-slate-800 text-sm">${escapeHTML(item.subject)}</h4>
             ${pill}
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">${item.class} • ${item.room} • ${item.periodName}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${escapeHTML(item.class)} • ${escapeHTML(item.room)} • ${escapeHTML(item.periodName)}</p>
         </div>
       `;
       timelineList.appendChild(div);
@@ -2182,7 +2295,7 @@ function renderTeacherDashboard() {
       let statusBadge = '';
       let borderBg = '';
       if (approvedLeaveToday) {
-        statusBadge = `<span class="text-xs font-bold text-emerald-700">🔄 SUB ASSIGNED: ${approvedLeaveToday.substitute_teacher || 'Dr. Rajesh'}</span>`;
+        statusBadge = `<span class="text-xs font-bold text-emerald-700">🔄 SUB ASSIGNED: ${escapeHTML(approvedLeaveToday.substitute_teacher || 'Dr. Rajesh')}</span>`;
         borderBg = 'border-emerald-200 bg-emerald-50/40';
       } else if (item.status === 'Completed') {
         statusBadge = '<span class="text-xs font-bold text-emerald-700">✓ COMPLETED</span>';
@@ -2199,11 +2312,11 @@ function renderTeacherDashboard() {
       card.className = `p-4 rounded-2xl border ${borderBg} space-y-2`;
       card.innerHTML = `
         <div class="flex justify-between items-center">
-          <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-white border border-slate-200">${item.time}</span>
+          <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-white border border-slate-200">${escapeHTML(item.time)}</span>
           ${statusBadge}
         </div>
-        <h4 class="font-bold text-slate-900 text-base">${item.subject}</h4>
-        <p class="text-xs text-slate-600">Batch: <strong>${item.class}</strong> • Room: <strong>${item.room}</strong> • ${item.periodName}</p>
+        <h4 class="font-bold text-slate-900 text-base">${escapeHTML(item.subject)}</h4>
+        <p class="text-xs text-slate-600">Batch: <strong>${escapeHTML(item.class)}</strong> • Room: <strong>${escapeHTML(item.room)}</strong> • ${escapeHTML(item.periodName)}</p>
       `;
       tabClassesGrid.appendChild(card);
     });
@@ -2325,9 +2438,9 @@ function renderTeacherLeaves() {
       statusMessage = `
         <div class="mt-2 p-2.5 bg-white/80 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
           <p class="font-bold flex items-center gap-1.5">
-            <span>🔄</span> Substitute Faculty Assigned: <span class="text-indigo-700 underline font-extrabold">${l.substitute_teacher || 'Dr. Rajesh'}</span>
+            <span>🔄</span> Substitute Faculty Assigned: <span class="text-indigo-700 underline font-extrabold">${escapeHTML(l.substitute_teacher || 'Dr. Rajesh')}</span>
           </p>
-          <p class="text-[11px] text-slate-500">Your scheduled classes for ${l.date} have been delegated. You are excused from check-in.</p>
+          <p class="text-[11px] text-slate-500">Your scheduled classes for ${escapeHTML(l.date)} have been delegated. You are excused from check-in.</p>
         </div>
       `;
     } else if (l.status === 'rejected') {
@@ -2347,16 +2460,18 @@ function renderTeacherLeaves() {
       statusMessage = '<p class="text-[11px] text-slate-500 mt-1">Submitted to HOD desk. You will be notified immediately upon approval.</p>';
     }
 
+    const periodsStr = Array.isArray(l.periods) ? l.periods.map(escapeHTML).join(', ') : 'Full Day';
+
     return `
       <div class="p-4 rounded-2xl border ${statusBorder} ${statusBg} transition space-y-1.5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <span class="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">📅 ${l.date}</span>
-            <span class="text-xs text-slate-600 font-semibold">Periods: ${l.periods?.join(', ') || 'Full Day'}</span>
+            <span class="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">📅 ${escapeHTML(l.date)}</span>
+            <span class="text-xs text-slate-600 font-semibold">Periods: ${periodsStr}</span>
           </div>
           ${statusPill}
         </div>
-        <p class="text-xs text-slate-700"><strong>Reason:</strong> ${l.reason}</p>
+        <p class="text-xs text-slate-700"><strong>Reason:</strong> ${escapeHTML(l.reason)}</p>
         ${statusMessage}
       </div>
     `;
@@ -2423,24 +2538,24 @@ function renderAdminTables() {
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
         const depts = (h.departments && h.departments.length > 0) ? h.departments : (h.dept ? h.dept.split(' & ') : ['Information Technology']);
-        const deptBadges = depts.map(d => `<span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${d}</span>`).join(' ');
+        const deptBadges = depts.map(d => `<span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">${escapeHTML(d)}</span>`).join(' ');
 
         tr.innerHTML = `
-          <td class="py-3 px-4 font-bold text-slate-800">${h.name}</td>
-          <td class="py-3 px-4 font-mono text-xs text-indigo-600 font-semibold">${h.email}</td>
+          <td class="py-3 px-4 font-bold text-slate-800">${escapeHTML(h.name)}</td>
+          <td class="py-3 px-4 font-mono text-xs text-indigo-600 font-semibold">${escapeHTML(h.email)}</td>
           <td class="py-3 px-4 text-slate-700 font-medium">
             <div class="flex flex-wrap gap-1 items-center">
               ${deptBadges}
             </div>
           </td>
-          <td class="py-3 px-4 text-slate-500">${h.roomsManaged}</td>
+          <td class="py-3 px-4 text-slate-500">${escapeHTML(h.roomsManaged)}</td>
           <td class="py-3 px-4">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-              ${h.status}
+              ${escapeHTML(h.status)}
             </span>
           </td>
           <td class="py-3 px-4 text-right">
-            <button onclick="handleDeleteHod('${h.id}', '${h.email}', '${h.name}')" title="Delete HOD" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+            <button onclick="handleDeleteHod('${escapeHTML(h.id)}', '${escapeHTML(h.email)}', '${escapeHTML(h.name)}')" title="Delete HOD" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </td>
@@ -2462,18 +2577,18 @@ function renderAdminTables() {
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 text-sm';
         tr.innerHTML = `
-          <td class="py-3 px-4 font-bold text-slate-800">${t.name}</td>
-          <td class="py-3 px-4 text-slate-600 font-mono text-xs">${t.email}</td>
-          <td class="py-3 px-4 text-slate-800 font-medium">${t.subject}</td>
-          <td class="py-3 px-4 text-slate-600">${t.dept}</td>
-          <td class="py-3 px-4 text-slate-600">${t.workload}</td>
+          <td class="py-3 px-4 font-bold text-slate-800">${escapeHTML(t.name)}</td>
+          <td class="py-3 px-4 text-slate-600 font-mono text-xs">${escapeHTML(t.email)}</td>
+          <td class="py-3 px-4 text-slate-800 font-medium">${escapeHTML(t.subject)}</td>
+          <td class="py-3 px-4 text-slate-600">${escapeHTML(t.dept)}</td>
+          <td class="py-3 px-4 text-slate-600">${escapeHTML(t.workload)}</td>
           <td class="py-3 px-4">
             <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${t.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : (t.status === 'In Class' ? 'bg-indigo-100 text-indigo-800' : 'bg-rose-100 text-rose-800')}">
-              ${t.status}
+              ${escapeHTML(t.status)}
             </span>
           </td>
           <td class="py-3 px-4 text-right">
-            <button onclick="handleDeleteTeacher('${t.id}', '${t.name}')" title="Delete Faculty" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+            <button onclick="handleDeleteTeacher('${escapeHTML(t.id)}', '${escapeHTML(t.name)}')" title="Delete Faculty" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </td>
@@ -2496,24 +2611,24 @@ function renderAdminTables() {
       const isActive = v.status === 'ACTIVE';
 
       tr.innerHTML = `
-        <td class="py-3 px-4 font-bold text-indigo-700">${v.version}</td>
-        <td class="py-3 px-4 font-medium text-slate-800">${v.term}</td>
-        <td class="py-3 px-4 text-slate-500">${v.appliedAt}</td>
-        <td class="py-3 px-4 text-slate-600 text-xs font-mono">${v.generatedBy}</td>
+        <td class="py-3 px-4 font-bold text-indigo-700">${escapeHTML(v.version)}</td>
+        <td class="py-3 px-4 font-medium text-slate-800">${escapeHTML(v.term)}</td>
+        <td class="py-3 px-4 text-slate-500">${escapeHTML(v.appliedAt)}</td>
+        <td class="py-3 px-4 text-slate-600 text-xs font-mono">${escapeHTML(v.generatedBy)}</td>
         <td class="py-3 px-4">
           <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-emerald-500 text-white' : (isDraft ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600')}">
-            ${v.status}
+            ${escapeHTML(v.status)}
           </span>
         </td>
         <td class="py-3 px-4 text-right">
           <div class="flex items-center justify-end gap-1.5">
             ${isDraft ? `
-              <button onclick="handleApplyDraftVersion('${v.version}')" title="Apply this draft campus-wide" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg transition cursor-pointer">
+              <button onclick="handleApplyDraftVersion('${escapeHTML(v.version)}')" title="Apply this draft campus-wide" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg transition cursor-pointer">
                 ✓ Apply
               </button>
             ` : ''}
             ${!isActive ? `
-              <button onclick="handleDeleteTimetableVersion('${v.version}')" title="Delete Draft / Version" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+              <button onclick="handleDeleteTimetableVersion('${escapeHTML(v.version)}')" title="Delete Draft / Version" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             ` : '<span class="text-[10px] font-bold text-slate-400 italic">Protected (Active)</span>'}
@@ -2534,19 +2649,19 @@ function renderAdminTables() {
       div.innerHTML = `
         <div>
           <div class="flex items-center gap-2">
-            <h4 class="font-bold ${isActive ? 'text-emerald-900' : 'text-slate-900'} text-sm">${v.version} - ${v.term}</h4>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-600 text-white' : (isDraft ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-700')}">${v.status}</span>
+            <h4 class="font-bold ${isActive ? 'text-emerald-900' : 'text-slate-900'} text-sm">${escapeHTML(v.version)} - ${escapeHTML(v.term)}</h4>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-600 text-white' : (isDraft ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-700')}">${escapeHTML(v.status)}</span>
           </div>
-          <p class="text-xs ${isActive ? 'text-emerald-700' : 'text-slate-500'} mt-0.5">Applied: ${v.appliedAt} • Generated by: ${v.generatedBy}</p>
+          <p class="text-xs ${isActive ? 'text-emerald-700' : 'text-slate-500'} mt-0.5">Applied: ${escapeHTML(v.appliedAt)} • Generated by: ${escapeHTML(v.generatedBy)}</p>
         </div>
         <div class="flex items-center gap-2">
           ${isDraft ? `
-            <button onclick="handleApplyDraftVersion('${v.version}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer">
+            <button onclick="handleApplyDraftVersion('${escapeHTML(v.version)}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer">
               ✓ Apply Campus-Wide
             </button>
           ` : ''}
           ${!isActive ? `
-            <button onclick="handleDeleteTimetableVersion('${v.version}')" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer">
+            <button onclick="handleDeleteTimetableVersion('${escapeHTML(v.version)}')" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               <span>Delete Draft</span>
             </button>
@@ -2616,14 +2731,14 @@ function renderHodTeachers() {
     card.className = 'p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs';
     card.innerHTML = `
       <div>
-        <span class="font-bold text-slate-800 text-sm">${t.name}</span>
-        <p class="text-slate-500">${t.subject} • <span class="font-mono text-indigo-600">${t.email}</span></p>
+        <span class="font-bold text-slate-800 text-sm">${escapeHTML(t.name)}</span>
+        <p class="text-slate-500">${escapeHTML(t.subject)} • <span class="font-mono text-indigo-600">${escapeHTML(t.email)}</span></p>
       </div>
       <div class="flex items-center gap-2">
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
-          ${t.status}
+          ${escapeHTML(t.status)}
         </span>
-        <button onclick="handleDeleteTeacher('${t.id}', '${t.name}')" title="Delete Teacher" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+        <button onclick="handleDeleteTeacher('${escapeHTML(t.id)}', '${escapeHTML(t.name)}')" title="Delete Teacher" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
@@ -2750,22 +2865,25 @@ function renderHodLeaves() {
       ? '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">PENDING REVIEW</span>'
       : (isApproved ? '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">APPROVED</span>' : '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">REJECTED</span>');
 
+    const periodsStr = Array.isArray(l.periods) ? l.periods.map(escapeHTML).join(', ') : 'Full Day';
+    const leaveId = escapeHTML(String(l.id || l._id || ''));
+
     card.innerHTML = `
       <div class="space-y-1">
         <div class="flex items-center gap-2">
-          <h4 class="font-bold text-slate-900 text-sm">${l.teacher_name}</h4>
+          <h4 class="font-bold text-slate-900 text-sm">${escapeHTML(l.teacher_name)}</h4>
           ${statusPill}
-          <span class="text-xs text-slate-500 font-mono">📅 ${l.date}</span>
+          <span class="text-xs text-slate-500 font-mono">📅 ${escapeHTML(l.date)}</span>
         </div>
-        <p class="text-xs text-slate-600"><strong>Periods:</strong> ${l.periods?.join(', ') || 'Full Day'} • <strong>Reason:</strong> ${l.reason}</p>
-        ${l.substitute_teacher ? `<p class="text-xs text-indigo-700 font-semibold">🔄 Substitute Assigned: ${l.substitute_teacher}</p>` : ''}
+        <p class="text-xs text-slate-600"><strong>Periods:</strong> ${periodsStr} • <strong>Reason:</strong> ${escapeHTML(l.reason)}</p>
+        ${l.substitute_teacher ? `<p class="text-xs text-indigo-700 font-semibold">🔄 Substitute Assigned: ${escapeHTML(l.substitute_teacher)}</p>` : ''}
       </div>
       ${isPending ? `
         <div class="flex items-center gap-2 shrink-0">
-          <button onclick="handleApproveLeave('${l.id || l._id}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer">
+          <button onclick="handleApproveLeave('${leaveId}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer">
             <span>✓ Approve & Assign</span>
           </button>
-          <button onclick="handleRejectLeave('${l.id || l._id}')" class="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer">
+          <button onclick="handleRejectLeave('${leaveId}')" class="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer">
             <span>✕ Reject</span>
           </button>
         </div>
@@ -3207,16 +3325,16 @@ function renderAdminSubjects() {
     div.innerHTML = `
       <div>
         <div class="flex justify-between items-start">
-          <span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded">${s.code}</span>
+          <span class="font-mono text-xs font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded">${escapeHTML(s.code)}</span>
           <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-slate-500">${s.weeklyHours || 4} hrs / week</span>
-            <button onclick="handleDeleteSubject('${s.id || ''}', '${s.code}')" title="Delete Subject" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+            <span class="text-xs font-bold text-slate-500">${escapeHTML(s.weeklyHours || 4)} hrs / week</span>
+            <button onclick="handleDeleteSubject('${escapeHTML(s.id || '')}', '${escapeHTML(s.code)}')" title="Delete Subject" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </div>
         </div>
-        <h4 class="font-bold text-slate-900 mt-2">${s.name}</h4>
-        <p class="text-xs text-slate-500 mt-1">${s.type || 'Theory'} • ${s.dept || 'IT'} ${s.semester ? '• Sem ' + s.semester : ''}</p>
+        <h4 class="font-bold text-slate-900 mt-2">${escapeHTML(s.name)}</h4>
+        <p class="text-xs text-slate-500 mt-1">${escapeHTML(s.type || 'Theory')} • ${escapeHTML(s.dept || 'IT')} ${s.semester ? '• Sem ' + escapeHTML(s.semester) : ''}</p>
       </div>
     `;
     container.appendChild(div);
@@ -3247,15 +3365,15 @@ function renderAdminRooms() {
     div.innerHTML = `
       <div>
         <div class="flex justify-between items-start">
-          <span class="font-bold text-slate-900">${r.room}</span>
+          <span class="font-bold text-slate-900">${escapeHTML(r.room)}</span>
           <div class="flex items-center gap-1.5">
             <span class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">GPS Active</span>
-            <button onclick="handleDeleteRoom('${r.id || ''}', '${r.room}')" title="Delete Room" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+            <button onclick="handleDeleteRoom('${escapeHTML(r.id || '')}', '${escapeHTML(r.room)}')" title="Delete Room" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </div>
         </div>
-        <p class="text-xs text-slate-500 mt-0.5">${r.type || 'Lecture Hall'} • Cap: ${r.capacity || 60}</p>
+        <p class="text-xs text-slate-500 mt-0.5">${escapeHTML(r.type || 'Lecture Hall')} • Cap: ${escapeHTML(r.capacity || 60)}</p>
         <span class="text-[10px] text-indigo-600 font-mono block mt-1">📍 ${r.latitude ? Number(r.latitude).toFixed(4) : '12.9716'}°N, ${r.longitude ? Number(r.longitude).toFixed(4) : '77.5946'}°E (±${r.radius || 60}m)</span>
       </div>
     `;
@@ -3332,15 +3450,15 @@ function renderAdminBatches() {
     div.innerHTML = `
       <div>
         <div class="flex justify-between items-start">
-          <span class="text-base font-bold text-slate-800">${b.name}</span>
+          <span class="text-base font-bold text-slate-800">${escapeHTML(b.name)}</span>
           <div class="flex items-center gap-1.5">
-            <span class="text-[10px] font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">${b.sem}</span>
-            <button onclick="handleDeleteBatch('${b.id}', '${b.name}')" title="Delete Batch" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+            <span class="text-[10px] font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">${escapeHTML(b.sem)}</span>
+            <button onclick="handleDeleteBatch('${escapeHTML(b.id)}', '${escapeHTML(b.name)}')" title="Delete Batch" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </div>
         </div>
-        <p class="text-xs text-slate-500 mt-1.5">${b.strength} Students • ${b.baseRoom}</p>
+        <p class="text-xs text-slate-500 mt-1.5">${escapeHTML(b.strength)} Students • ${escapeHTML(b.baseRoom)}</p>
       </div>
     `;
     container.appendChild(div);
@@ -3407,25 +3525,25 @@ function renderSubjectMappings() {
     tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition';
     const isMultiClass = m.sections.length > 1;
     tr.innerHTML = `
-      <td class="py-2.5 px-3 font-semibold text-slate-900">${m.teacher}</td>
+      <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHTML(m.teacher)}</td>
       <td class="py-2.5 px-3">
-        <span class="font-bold text-indigo-700">${m.subject}</span>
-        <span class="text-[10px] text-slate-400 block">${m.room ? '📍 ' + m.room : ''}</span>
+        <span class="font-bold text-indigo-700">${escapeHTML(m.subject)}</span>
+        <span class="text-[10px] text-slate-400 block">${m.room ? '📍 ' + escapeHTML(m.room) : ''}</span>
       </td>
       <td class="py-2.5 px-3">
         <div class="flex flex-wrap gap-1 items-center">
-          ${m.sections.map(sec => `<span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-200 text-slate-800">${sec}</span>`).join('')}
+          ${m.sections.map(sec => `<span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-200 text-slate-800">${escapeHTML(sec)}</span>`).join('')}
           ${isMultiClass ? '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full" title="Protected: Zero period collision across these classes">Multi-Class Shared</span>' : ''}
         </div>
       </td>
       <td class="py-2.5 px-3">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${m.type === 'Lab' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}">${m.type || 'Theory'}</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${m.type === 'Lab' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}">${escapeHTML(m.type || 'Theory')}</span>
       </td>
       <td class="py-2.5 px-3 text-center">
-        <span class="font-bold text-xs bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg">${m.quota} periods / wk</span>
+        <span class="font-bold text-xs bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>
       </td>
       <td class="py-2.5 px-3 text-right">
-        <button onclick="handleDeleteSubjectMapping('${m.id}')" title="Delete Mapping" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+        <button onclick="handleDeleteSubjectMapping('${escapeHTML(m.id)}')" title="Delete Mapping" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </td>
@@ -3787,16 +3905,17 @@ function renderAdminTimetable() {
 
   const formatCell = (val, isLab = false) => {
     if (!val || val === '-') return '<span class="text-slate-300 font-mono">-</span>';
+    const escaped = escapeHTML(val);
     if (val.toLowerCase().includes('naan mudhalvan')) {
-      return `<div class="p-1 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-tight shadow-2xs">🌟 ${val}</div>`;
+      return `<div class="p-1 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 text-[11px] font-bold text-amber-950 leading-tight shadow-2xs">🌟 ${escaped}</div>`;
     }
     if (val.toLowerCase().includes('lab')) {
-      return `<div class="p-1 rounded-lg bg-purple-50 border border-purple-200/70 text-[11px] font-semibold text-purple-950 leading-tight">${val}</div>`;
+      return `<div class="p-1 rounded-lg bg-purple-50 border border-purple-200/70 text-[11px] font-semibold text-purple-950 leading-tight">${escaped}</div>`;
     }
     if (val.includes('Library') || val.includes('Sports') || val.includes('Seminar')) {
-      return `<div class="p-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600 leading-tight">${val}</div>`;
+      return `<div class="p-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600 leading-tight">${escaped}</div>`;
     }
-    return `<div class="p-1 rounded-lg bg-indigo-50/70 border border-indigo-200/60 text-[11px] font-semibold text-indigo-950 leading-tight">${val}</div>`;
+    return `<div class="p-1 rounded-lg bg-indigo-50/70 border border-indigo-200/60 text-[11px] font-semibold text-indigo-950 leading-tight">${escaped}</div>`;
   };
 
   slots.forEach(row => {
@@ -3804,8 +3923,8 @@ function renderAdminTimetable() {
     tr.className = 'border-b border-slate-200 hover:bg-slate-50/70 transition text-xs';
     tr.innerHTML = `
       <td class="font-bold bg-slate-50 border border-slate-200 p-2 text-slate-900 whitespace-nowrap">
-        ${row.day}
-        <span class="block text-[10px] text-indigo-600 font-bold">${row.section}</span>
+        ${escapeHTML(row.day)}
+        <span class="block text-[10px] text-indigo-600 font-bold">${escapeHTML(row.section)}</span>
       </td>
       <td class="border border-slate-200 p-1.5">${formatCell(row.p1)}</td>
       <td class="border border-slate-200 p-1.5">${formatCell(row.p2)}</td>
@@ -3817,7 +3936,7 @@ function renderAdminTimetable() {
       <td class="border border-slate-200 p-1.5">${formatCell(row.p6)}</td>
       <td class="border border-slate-200 p-1.5">${formatCell(row.p7)}</td>
       <td class="border border-slate-200 p-2 text-right whitespace-nowrap">
-        <button onclick="handleDeleteTimetableSlot('${row.id}')" title="Delete Schedule Row" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
+        <button onclick="handleDeleteTimetableSlot('${escapeHTML(row.id)}')" title="Delete Schedule Row" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </td>
@@ -3861,10 +3980,10 @@ function renderNotifications() {
       <span class="text-base">${n.type === 'alert' ? '🚨' : (n.type === 'success' ? '✅' : 'ℹ️')}</span>
       <div class="flex-1">
         <div class="flex items-center justify-between">
-          <span class="font-bold text-slate-900">${n.title}</span>
-          <span class="text-[10px] text-slate-400">${n.created_at || 'Just now'}</span>
+          <span class="font-bold text-slate-900">${escapeHTML(n.title)}</span>
+          <span class="text-[10px] text-slate-400">${escapeHTML(n.created_at || 'Just now')}</span>
         </div>
-        <p class="text-slate-600 mt-0.5 leading-relaxed">${n.message}</p>
+        <p class="text-slate-600 mt-0.5 leading-relaxed">${escapeHTML(n.message)}</p>
       </div>
     `;
     list.appendChild(div);

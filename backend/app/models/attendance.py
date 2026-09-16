@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 class CheckInRequest(BaseModel):
@@ -7,6 +7,7 @@ class CheckInRequest(BaseModel):
     latitude: float
     longitude: float
     accuracy_meters: Optional[float] = None
+    timestamp: Optional[float] = None
     department: str = "Information Technology"
 
 class CheckInResponse(BaseModel):
