@@ -22,7 +22,17 @@ class GeoLocationHelper {
           const timestamp = position.timestamp || Date.now();
           const ageSeconds = Math.abs(Date.now() - timestamp) / 1000;
 
-          // ANTI-SPOOFING & PRECISION GUARD: Reject low-accuracy or stale fixes
+          // ANTI-SPOOFING & PRECISION GUARD: Reject mock location, low-accuracy or stale fixes
+          const isMock = Boolean(
+            position.mocked ||
+            (position.coords && (position.coords.mocked || position.coords.isMock))
+          );
+
+          if (isMock) {
+            reject(new Error("Mock location provider detected! Falsified or simulated GPS coordinates are strictly forbidden for campus check-in."));
+            return;
+          }
+
           if (accuracy > 100) {
             reject(new Error(`GPS signal is too weak (accuracy ±${Math.round(accuracy)}m). You must have high-accuracy device GPS enabled (under ±100m) to check in.`));
             return;
@@ -37,7 +47,8 @@ class GeoLocationHelper {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: accuracy,
-            timestamp: timestamp
+            timestamp: timestamp,
+            is_mock: isMock
           });
         },
         (error) => {
@@ -66,7 +77,7 @@ class GeoLocationHelper {
       const coords = await this.getCurrentPosition();
       console.log(`[GPS Verified] lat=${coords.latitude}, lon=${coords.longitude}, accuracy=±${Math.round(coords.accuracy)}m, timestamp=${coords.timestamp}`);
 
-      // 2. Submit to backend for Haversine distance verification against room coords
+      // 2. Submit to backend for independent Haversine distance verification against room coords
       const result = await ApiClient.checkIn({
         class_name: className,
         room_code: roomCode,
@@ -74,6 +85,7 @@ class GeoLocationHelper {
         longitude: coords.longitude,
         accuracy_meters: coords.accuracy,
         timestamp: coords.timestamp,
+        is_mock: coords.is_mock || false,
         department: department
       });
 

@@ -126,19 +126,58 @@ window.FirebaseDb = {
     }
   },
 
-  // Load state from Firestore Cloud
+  // Load state from Firestore Cloud (with inbound password purge)
   async loadAppState() {
     try {
       if (!db) return null;
       const snap = await getDoc(doc(db, "campus_system", "state"));
       if (snap.exists()) {
-        console.log("☁️ Loaded latest state from Firebase Cloud Firestore!");
-        return snap.data();
+        const data = snap.data();
+        ['users', 'hodsList', 'teachersList'].forEach(coll => {
+          if (Array.isArray(data[coll])) {
+            data[coll].forEach(item => {
+              if (item && item.password) delete item.password;
+            });
+          }
+        });
+        console.log("☁️ Loaded latest state from Firebase Cloud Firestore (passwords purged)!");
+        return data;
       }
       return null;
     } catch (err) {
       console.warn("⚠️ Firestore cloud load notice:", err.message);
       return null;
+    }
+  },
+
+  // One-time Cloud Database Purge: Cleanses any legacy plaintext passwords stored in Firestore document
+  async scrubCloudPasswords() {
+    try {
+      if (!db) return false;
+      const snap = await getDoc(doc(db, "campus_system", "state"));
+      if (!snap.exists()) return false;
+      const data = snap.data();
+      let hasLeakedPasswords = false;
+
+      ['users', 'hodsList', 'teachersList'].forEach(coll => {
+        if (Array.isArray(data[coll])) {
+          data[coll].forEach(item => {
+            if (item && item.password) {
+              delete item.password;
+              hasLeakedPasswords = true;
+            }
+          });
+        }
+      });
+
+      if (hasLeakedPasswords) {
+        await setDoc(doc(db, "campus_system", "state"), data, { merge: true });
+        console.log("🛡️ Cloud Security Migration: Legacy plaintext passwords permanently purged from Firebase Firestore!");
+      }
+      return true;
+    } catch (err) {
+      console.warn("Firestore password scrub notice:", err.message);
+      return false;
     }
   },
 
@@ -148,8 +187,16 @@ window.FirebaseDb = {
       if (!db) return () => {};
       return onSnapshot(doc(db, "campus_system", "state"), (snap) => {
         if (snap.exists()) {
+          const data = snap.data();
+          ['users', 'hodsList', 'teachersList'].forEach(coll => {
+            if (Array.isArray(data[coll])) {
+              data[coll].forEach(item => {
+                if (item && item.password) delete item.password;
+              });
+            }
+          });
           console.log("⚡ Real-time cloud update received from Firebase!");
-          callback(snap.data());
+          callback(data);
         }
       }, (err) => {
         console.warn("⚠️ Firestore listener notice:", err.message);
@@ -160,6 +207,11 @@ window.FirebaseDb = {
     }
   }
 };
+
+// Automatically run cloud database sanitization on app startup
+if (window.FirebaseDb && typeof window.FirebaseDb.scrubCloudPasswords === "function") {
+  window.FirebaseDb.scrubCloudPasswords();
+}
 
 console.log("🔥 Firebase Auth & Firestore initialized successfully for project: moniterxx");
 

@@ -103,7 +103,18 @@ if (!appState._cleanDataV22) {
   appState._cleanDataV22 = true;
 }
 
-// Enterprise Security Hardening: Purge any legacy plaintext passwords from cached state
+// Enterprise Security Hardening: Purge any legacy plaintext passwords from cached state and localStorage
+try {
+  const rawCache = localStorage.getItem('mymonitor_state') || localStorage.getItem('mymoniter_state');
+  if (rawCache && rawCache.includes('"password"')) {
+    const parsedCache = JSON.parse(rawCache);
+    const scrubbed = JSON.parse(JSON.stringify(parsedCache, (k, v) => k === 'password' ? undefined : v));
+    localStorage.setItem('mymonitor_state', JSON.stringify(scrubbed));
+  }
+  localStorage.removeItem('mymoniter_state');
+  localStorage.removeItem('mymonitor_token'); // Purge legacy long-lived token from persistent disk storage
+} catch (e) {}
+
 if (Array.isArray(appState.users)) {
   appState.users.forEach(u => { delete u.password; });
 }
@@ -117,7 +128,12 @@ if (Array.isArray(appState.teachersList)) {
 let cloudSaveTimer = null;
 function saveState(immediateCloud = false) {
   try {
-    localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+    // Malware & XSS Defense: Never write password fields to localStorage
+    const cleanLocal = JSON.parse(JSON.stringify(appState, (key, val) => {
+      if (key === 'password') return undefined;
+      return val;
+    }));
+    localStorage.setItem('mymonitor_state', JSON.stringify(cleanLocal));
   } catch (e) {
     console.warn('localStorage cache note:', e.message);
   }
@@ -135,6 +151,28 @@ function saveState(immediateCloud = false) {
     }
   }
 }
+
+// Server-side RBAC Verification: Ensure client-side role strictly matches verified backend authority
+async function verifyUserRoleWithBackend() {
+  if (!appState.currentUser) return;
+  try {
+    if (window.ApiClient && window.FirebaseAuth) {
+      const profile = await window.ApiClient.getProfile();
+      if (profile && profile.role) {
+        if (appState.currentUser.role !== profile.role) {
+          console.warn('Role mismatch detected between client and backend! Re-synchronizing to server truth.');
+          appState.currentUser = Object.freeze({ ...appState.currentUser, role: profile.role });
+          appState.activeRole = profile.role;
+          saveState(true);
+          renderActiveViews();
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Backend RBAC verification note:', e.message);
+  }
+}
+window.verifyUserRoleWithBackend = verifyUserRoleWithBackend;
 
 // Transport Security: Enforce HTTPS in production environments
 if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -399,18 +437,19 @@ async function handleLogin(e) {
   appState.activeRole = user.role;
   saveState(true);
 
-  // Connect ApiClient Auth Token
-  if (window.ApiClient) {
-    if (firebaseToken) {
-      ApiClient.setAuthToken(firebaseToken);
-    } else {
-      ApiClient.setAuthToken(user.role === 'admin' ? 'dev-admin' : (user.role === 'hod' ? 'dev-hod' : 'dev-teacher'));
-    }
+  // Connect ApiClient Auth Token (Session-scoped)
+  if (window.ApiClient && firebaseToken) {
+    ApiClient.setAuthToken(firebaseToken);
   }
 
-  // Connect WebSocket live room for user department
+  // Verify role integrity against server authority
+  if (typeof verifyUserRoleWithBackend === 'function') {
+    verifyUserRoleWithBackend();
+  }
+
+  // Connect WebSocket live room with authenticated identity
   if (window.WSClient) {
-    window.WSClient.connect(user.dept || 'Information Technology', user.id);
+    window.WSClient.connect(user.dept || 'Information Technology', user.email || user.id);
   }
 
   updateAuthUI();

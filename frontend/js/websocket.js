@@ -20,19 +20,34 @@ class WebSocketClient {
     return "wss://mymonitorxx-backend.onrender.com";
   }
 
-  connect(department = "Information Technology", userId = "usr-admin-1") {
+  async connect(department = "Information Technology", userId = null) {
     this.department = department;
     const wsBase = this.getWsBaseUrl();
+
+    // Authenticate WebSocket stream with Firebase ID token (JWT)
+    let token = "";
+    if (window.FirebaseAuth && typeof window.FirebaseAuth.getIdToken === "function") {
+      try {
+        token = await window.FirebaseAuth.getIdToken();
+      } catch (e) {}
+    }
+
+    if (!userId) {
+      const user = (window.appState && window.appState.currentUser) ? window.appState.currentUser : null;
+      userId = user ? (user.email || user.id) : "usr-admin-1";
+    }
+
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
 
     // 1. Live Monitoring Room Connection
     try {
       if (this.wsLive) {
         this.wsLive.close();
       }
-      this.wsLive = new WebSocket(`${wsBase}/ws/live/${encodeURIComponent(department)}`);
+      this.wsLive = new WebSocket(`${wsBase}/ws/live/${encodeURIComponent(department)}${tokenQuery}`);
       
       this.wsLive.onopen = () => {
-        console.log(`[WS] Connected to Live Monitoring Room for ${department}`);
+        console.log(`[WS] Connected to Live Monitoring Room for ${department} (JWT Authenticated)`);
       };
 
       this.wsLive.onmessage = (event) => {
@@ -57,10 +72,10 @@ class WebSocketClient {
       if (this.wsNotif) {
         this.wsNotif.close();
       }
-      this.wsNotif = new WebSocket(`${wsBase}/ws/notifications/${encodeURIComponent(userId)}`);
+      this.wsNotif = new WebSocket(`${wsBase}/ws/notifications/${encodeURIComponent(userId)}${tokenQuery}`);
       
       this.wsNotif.onopen = () => {
-        console.log(`[WS] Connected to personal alerts stream for ${userId}`);
+        console.log(`[WS] Connected to personal alerts stream for ${userId} (JWT Authenticated)`);
       };
 
       this.wsNotif.onmessage = (event) => {

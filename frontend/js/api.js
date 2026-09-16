@@ -6,19 +6,32 @@ const API_BASE = localStorage.getItem("mymonitor_backend_url") ||
     : "https://mymonitorxx-backend.onrender.com/api");
 
 class ApiClient {
-  static getAuthToken() {
-    return localStorage.getItem("mymonitor_token") || "dev-admin";
+  static async getAuthToken() {
+    if (window.FirebaseAuth && typeof window.FirebaseAuth.getIdToken === "function") {
+      try {
+        const token = await window.FirebaseAuth.getIdToken();
+        if (token) return token;
+      } catch (e) {}
+    }
+    return sessionStorage.getItem("mymonitor_token") || "";
   }
 
   static setAuthToken(token) {
-    localStorage.setItem("mymonitor_token", token);
+    if (token) {
+      sessionStorage.setItem("mymonitor_token", token);
+    } else {
+      sessionStorage.removeItem("mymonitor_token");
+    }
+    // Cleanse any legacy tokens lingering on persistent disk
+    try { localStorage.removeItem("mymonitor_token"); } catch (e) {}
   }
 
   static async request(endpoint, options = {}) {
+    const token = await this.getAuthToken();
     const url = `${API_BASE}${endpoint}`;
     const headers = {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${this.getAuthToken()}`,
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...(options.headers || {})
     };
 

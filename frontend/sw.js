@@ -1,5 +1,5 @@
-// FOLIO Service Worker v23.0.0 (Enterprise Security Hardened)
-const CACHE_NAME = "folio-v23";
+// FOLIO Service Worker v24.0.0 (Enterprise Security Hardened)
+const CACHE_NAME = "folio-v24";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

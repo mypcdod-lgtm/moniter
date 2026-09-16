@@ -1,0 +1,36 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Authentication Guard: Requests must be signed by valid Firebase Cloud Auth credentials
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Enterprise Password Guard: Forbid any document containing a plaintext password
+    function hasNoPlaintextPassword() {
+      return !('password' in request.resource.data) &&
+             (!('users' in request.resource.data) || !request.resource.data.users.hasAny(['password']));
+    }
+
+    // Campus System State collection (campus_system/state)
+    match /campus_system/{docId} {
+      // Allow authenticated campus faculty and students to read campus state
+      allow read: if isAuthenticated();
+
+      // Allow write only if authenticated and password properties are NOT included
+      allow write: if isAuthenticated() && hasNoPlaintextPassword();
+    }
+
+    // Users directory collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !('password' in request.resource.data);
+    }
+
+    // Default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -59,7 +59,6 @@ async def create_teacher(payload: TeacherCreate, db = Depends(get_db), current_u
             "_id": str(uuid.uuid4()),
             "email": payload.email.lower(),
             "name": payload.name,
-            "password": payload.password,
             "role": "teacher",
             "department": payload.department,
             "firebase_uid": fb_uid,

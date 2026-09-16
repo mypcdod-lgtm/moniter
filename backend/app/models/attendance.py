@@ -8,6 +8,7 @@ class CheckInRequest(BaseModel):
     longitude: float
     accuracy_meters: Optional[float] = None
     timestamp: Optional[float] = None
+    is_mock: Optional[bool] = False
     department: str = "Information Technology"
 
 class CheckInResponse(BaseModel):
