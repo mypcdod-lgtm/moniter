@@ -1044,6 +1044,13 @@
                   </span>
                   <span id="hod-drawer-substitute-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Active</span>
                 </a>
+                <a href="javascript:void(0)" onclick="switchHodTab('topic-tracker')" data-hod-tab="topic-tracker" class="hod-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+                  <span class="flex items-center gap-3">
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <span class="font-semibold text-slate-800">Weekly Topic Tracker</span>
+                  </span>
+                  <span id="hod-drawer-topic-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Live</span>
+                </a>
                 <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-drawer-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
                   <span class="flex items-center gap-3">
                     <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
@@ -1147,6 +1154,13 @@
                 <span>Substitute Management</span>
               </span>
               <span id="hod-sidebar-substitute-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">0 Active</span>
+            </a>
+            <a href="javascript:void(0)" onclick="switchHodTab('topic-tracker')" data-hod-tab="topic-tracker" class="hod-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
+              <span class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                <span class="font-semibold text-slate-800">Weekly Topic Tracker</span>
+              </span>
+              <span id="hod-sidebar-topic-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Live</span>
             </a>
             <a href="javascript:void(0)" onclick="switchHodTab('leaves')" data-hod-tab="leaves" class="hod-sidebar-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition">
               <span class="flex items-center gap-3">
@@ -1301,6 +1315,47 @@
               </div>
             </div>
 
+            <!-- TODAY'S PLANNED TOPICS BY FACULTY (SUMMARY WIDGET) -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="p-2 rounded-xl bg-amber-50 text-amber-700 text-base">📖</span>
+                  <div>
+                    <h3 class="font-bold text-slate-900 text-base">Today's Planned Topics by Faculty</h3>
+                    <p id="hod-today-topics-sub" class="text-xs text-slate-500">Live syllabus coverage and daily topics logged across classes for today</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span id="hod-today-topics-count-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">0 Topics Logged</span>
+                  <button onclick="switchHodTab('topic-tracker')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1 cursor-pointer">
+                    <span>View Full Weekly Tracker</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="bg-slate-50/80 text-slate-500 text-xs uppercase font-semibold">
+                    <tr>
+                      <th class="py-3 px-4">CLASS</th>
+                      <th class="py-3 px-4">PERIOD</th>
+                      <th class="py-3 px-4">FACULTY</th>
+                      <th class="py-3 px-4">SUBJECT</th>
+                      <th class="py-3 px-4">TODAY'S PLANNED TOPIC</th>
+                      <th class="py-3 px-4 text-right">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hod-today-topics-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+              <div id="hod-today-topics-empty" class="p-6 text-center text-xs text-slate-400 hidden">
+                No faculty topics logged for today yet. Teachers submit topics upon checking into their assigned class.
+              </div>
+            </div>
+
           </div>
 
           <!-- Other HOD tabs -->
@@ -1346,6 +1401,109 @@
                 <span id="hod-substitute-count-header-badge" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">0 Active</span>
               </div>
               <div id="hod-substitutes-list" class="space-y-3"></div>
+            </div>
+          </div>
+
+          <!-- TAB: WEEKLY CLASSROOM TOPIC TRACKER (HOD) -->
+          <div id="hod-tab-topic-tracker" class="hod-tab-pane hidden space-y-5">
+            <!-- Header & Filter Bar -->
+            <div class="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="p-2 rounded-xl bg-indigo-50 text-indigo-700 text-lg">📑</span>
+                    <h3 class="font-black text-slate-900 text-lg tracking-tight">Weekly Classroom Topic Tracker</h3>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1">Live record of topics taught by faculty across every class session • Auto-resets weekly</p>
+                </div>
+                
+                <!-- Action & Permanent Delete Controls -->
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <button onclick="renderHodTopicTracker()" title="Refresh topic logs" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Refresh</span>
+                  </button>
+                  <button id="hod-topic-delete-week-btn" onclick="confirmDeleteTopicWeek()" title="Permanently delete selected week's topic records" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span>Permanently Delete Week Records</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Filter Dropdowns Row -->
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                <!-- Week Selector Dropdown -->
+                <div class="sm:col-span-6 space-y-1">
+                  <label class="block text-xs font-bold text-slate-700">Academic Week:</label>
+                  <select id="hod-topic-week-filter" onchange="renderHodTopicTracker()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="CURRENT">Current Week (Active)</option>
+                  </select>
+                </div>
+
+                <!-- Class Filter Dropdown -->
+                <div class="sm:col-span-6 space-y-1">
+                  <label class="block text-xs font-bold text-slate-700">Filter by Class / Batch:</label>
+                  <select id="hod-topic-class-filter" onchange="renderHodTopicTracker()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="ALL">All Classes & Batches</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Summary Counter Badges -->
+              <div class="grid grid-cols-3 gap-3 pt-2">
+                <div class="bg-indigo-50/60 p-3 rounded-2xl border border-indigo-100 text-center">
+                  <span class="text-[11px] font-bold text-indigo-700 uppercase">Topics Logged</span>
+                  <div id="hod-topic-stat-total" class="text-xl font-black text-indigo-950 mt-0.5">0</div>
+                </div>
+                <div class="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100 text-center">
+                  <span class="text-[11px] font-bold text-emerald-700 uppercase">Classes Covered</span>
+                  <div id="hod-topic-stat-classes" class="text-xl font-black text-emerald-950 mt-0.5">0</div>
+                </div>
+                <div class="bg-purple-50/60 p-3 rounded-2xl border border-purple-100 text-center">
+                  <span class="text-[11px] font-bold text-purple-700 uppercase">Faculty Logged</span>
+                  <div id="hod-topic-stat-faculty" class="text-xl font-black text-purple-950 mt-0.5">0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Weekly Topics Table Container -->
+            <div class="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 id="hod-topic-table-title" class="font-extrabold text-slate-900 text-sm">Topics Taught Across Classes</h4>
+                  <p id="hod-topic-table-subtitle" class="text-xs text-slate-500">Current active week</p>
+                </div>
+                <span id="hod-topic-table-count-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  0 Records
+                </span>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead class="bg-slate-50/80 text-slate-500 text-xs uppercase font-semibold border-b border-slate-100">
+                    <tr>
+                      <th class="py-3 px-4">DATE & DAY</th>
+                      <th class="py-3 px-4">CLASS</th>
+                      <th class="py-3 px-4">PERIOD</th>
+                      <th class="py-3 px-4">FACULTY</th>
+                      <th class="py-3 px-4">SUBJECT</th>
+                      <th class="py-3 px-4">PLANNED TOPIC TITLE</th>
+                      <th class="py-3 px-4">STATUS</th>
+                      <th class="py-3 px-4 text-right">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hod-weekly-topics-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Empty State Placeholder -->
+              <div id="hod-topics-empty-state" class="p-8 text-center hidden">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-xl mb-3">📖</div>
+                <h4 class="font-bold text-slate-800 text-sm">No Topic Records Found</h4>
+                <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">When teachers check in and submit their planned lesson topics for each class period, they will automatically appear here.</p>
+              </div>
             </div>
           </div>
 
@@ -1638,6 +1796,49 @@
 
                   <!-- Decorative glow effect -->
                   <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                </div>
+
+                <!-- TEACHER TOPIC ENTRY / STATUS CARD (Prominent Post Check-in Prompt) -->
+                <div id="teacher-topic-prompt-card" class="bg-gradient-to-br from-amber-50/90 via-white to-indigo-50/70 border-2 border-indigo-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="p-2 rounded-xl bg-amber-100 text-amber-700 text-base">📝</span>
+                      <div>
+                        <h4 class="font-extrabold text-sm text-slate-900 tracking-tight">TODAY'S PLANNED LESSON TOPIC</h4>
+                        <p id="teacher-topic-card-subtitle" class="text-xs text-slate-500">Period -- • Loading...</p>
+                      </div>
+                    </div>
+                    <span id="teacher-topic-status-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      Pending Entry
+                    </span>
+                  </div>
+
+                  <!-- Prompt input container -->
+                  <div id="teacher-topic-input-container" class="space-y-2.5">
+                    <label for="teacher-topic-input" class="block text-xs font-bold text-slate-700">Which topic do you plan to teach in this period today?</label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <input id="teacher-topic-input" type="text" maxlength="150" placeholder="e.g. Binary Search Trees - Insertion & Traversal" class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs">
+                      <button id="teacher-topic-save-btn" onclick="saveTeacherTopic()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>Save & Broadcast Topic</span>
+                      </button>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Once saved, your lesson topic will immediately be visible on the HOD's Live Monitoring & Weekly Topic Tracker.</p>
+                  </div>
+
+                  <!-- Recorded / Read-only container (Shown when topic is already submitted) -->
+                  <div id="teacher-topic-view-container" class="hidden p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <span class="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Topic Confirmed for Today</div>
+                        <div id="teacher-topic-display-text" class="text-sm font-bold text-slate-900 truncate">--</div>
+                      </div>
+                    </div>
+                    <button onclick="editTeacherTopic()" class="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs transition shrink-0 cursor-pointer">
+                      ✏️ Edit Topic
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Teacher Workload & Progress Cards -->

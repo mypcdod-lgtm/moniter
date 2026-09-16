@@ -54,6 +54,11 @@ class WebSocketClient {
         try {
           const payload = JSON.parse(event.data);
           this.dispatch("live_update", payload);
+          if (payload.type === "TOPIC_UPDATE") {
+            this.dispatch("topic_update", payload);
+          } else if (payload.type === "TOPIC_DELETED") {
+            this.dispatch("topic_deleted", payload);
+          }
         } catch (e) {
           console.warn("[WS] Non-JSON live message:", event.data);
         }

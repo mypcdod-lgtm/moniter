@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_role
 from app.db.mongo import get_db
-from app.models.attendance import CheckInRequest, CheckInResponse, LiveSessionResponse
+from app.models.attendance import (
+    CheckInRequest, CheckInResponse, LiveSessionResponse,
+    TopicEntryRequest, TopicEntryResponse
+)
 from app.services.geolocation import verify_teacher_location, haversine_distance
 from app.core.websocket_manager import ws_manager
 from app.core.config import settings
 import datetime
+import uuid
 
 router = APIRouter(prefix="/attendance", tags=["Attendance & Live Sessions"])
 
@@ -160,3 +164,112 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
         room_code=payload.room_code,
         message=f"GPS verified! Checked in to Room {payload.room_code} ({loc_check['distance_meters']}m away)."
     )
+
+@router.post("/topics", response_model=TopicEntryResponse)
+async def record_daily_topic(payload: TopicEntryRequest, db = Depends(get_db), current_user = Depends(get_current_user)):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    date_str = payload.date or now.strftime("%Y-%m-%d")
+    iso_year, iso_week, _ = now.isocalendar()
+    week_key = payload.week_key or f"{iso_year}-W{iso_week:02d}"
+    day_name = now.strftime("%A")
+
+    teacher_name = payload.teacher_name or current_user.get("name", "Faculty Member")
+    teacher_email = current_user.get("email", "")
+
+    doc = {
+        "_id": str(uuid.uuid4()),
+        "class_name": payload.class_name,
+        "room_code": payload.room_code or "",
+        "period": payload.period,
+        "period_name": payload.period_name or (f"Period {payload.period}" if payload.period else "Period"),
+        "time_slot": payload.time_slot or "",
+        "subject": payload.subject,
+        "topic_title": payload.topic_title.strip(),
+        "department": payload.department or current_user.get("department", "Information Technology"),
+        "teacher_name": teacher_name,
+        "teacher_email": teacher_email,
+        "date": date_str,
+        "day": day_name,
+        "week_key": week_key,
+        "created_at": now.isoformat()
+    }
+
+    # Upsert: if teacher submits or updates topic for the same class, period, and date
+    query = {
+        "class_name": payload.class_name,
+        "period": payload.period,
+        "date": date_str
+    }
+    existing = await db["topics"].find_one(query)
+    if existing:
+        await db["topics"].update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "topic_title": payload.topic_title.strip(),
+                "subject": payload.subject,
+                "room_code": payload.room_code or existing.get("room_code", ""),
+                "time_slot": payload.time_slot or existing.get("time_slot", ""),
+                "teacher_name": teacher_name,
+                "updated_at": now.isoformat()
+            }}
+        )
+        doc = await db["topics"].find_one({"_id": existing["_id"]})
+    else:
+        await db["topics"].insert_one(doc)
+
+    # Broadcast live topic update to HOD Monitoring Dashboard via WebSocket
+    await ws_manager.broadcast_to_room(doc.get("department", "Information Technology"), {
+        "type": "TOPIC_UPDATE",
+        "topic": {
+            "id": str(doc["_id"]),
+            "class_name": doc["class_name"],
+            "period": doc.get("period"),
+            "period_name": doc.get("period_name"),
+            "time_slot": doc.get("time_slot"),
+            "subject": doc["subject"],
+            "topic_title": doc["topic_title"],
+            "teacher_name": doc["teacher_name"],
+            "date": doc["date"],
+            "day": doc["day"],
+            "week_key": doc["week_key"]
+        }
+    })
+
+    return doc
+
+@router.get("/topics", response_model=List[TopicEntryResponse])
+async def get_weekly_topics(
+    week_key: Optional[str] = None,
+    class_name: Optional[str] = None,
+    department: Optional[str] = None,
+    db = Depends(get_db)
+):
+    query = {}
+    if week_key:
+        query["week_key"] = week_key
+    if class_name and class_name.lower() != "all":
+        query["class_name"] = class_name
+    if department:
+        query["department"] = department
+
+    docs = await db["topics"].find(query).sort("created_at", -1).to_list(500)
+    return docs
+
+@router.delete("/topics/{week_key}")
+async def delete_week_topics(
+    week_key: str,
+    db = Depends(get_db),
+    current_user = Depends(require_role(["admin", "hod"]))
+):
+    result = await db["topics"].delete_many({"week_key": week_key})
+    await ws_manager.broadcast_to_room("Information Technology", {
+        "type": "TOPIC_DELETED",
+        "week_key": week_key,
+        "deleted_count": result.deleted_count
+    })
+    return {
+        "success": True,
+        "deleted_count": result.deleted_count,
+        "message": f"Successfully deleted {result.deleted_count} topic records for week {week_key}."
+    }
+

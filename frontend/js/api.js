@@ -95,6 +95,17 @@ class ApiClient {
   static getNotifications(dept = "") { return this.request(`/notifications?department=${encodeURIComponent(dept)}`); }
   static markNotificationRead(id) { return this.request(`/notifications/${id}/read`, { method: "PUT" }); }
   static markAllNotificationsRead(dept = "") { return this.request(`/notifications/read-all?department=${encodeURIComponent(dept)}`, { method: "PUT" }); }
+
+  // Weekly Topic Tracker
+  static getTopics(weekKey = "", className = "", dept = "") {
+    return this.request(`/attendance/topics?week_key=${encodeURIComponent(weekKey)}&class_name=${encodeURIComponent(className)}&department=${encodeURIComponent(dept)}`);
+  }
+  static saveTopic(data) {
+    return this.request("/attendance/topics", { method: "POST", body: JSON.stringify(data) });
+  }
+  static deleteTopicWeek(weekKey) {
+    return this.request(`/attendance/topics/${encodeURIComponent(weekKey)}`, { method: "DELETE" });
+  }
 }
 
 window.ApiClient = ApiClient;

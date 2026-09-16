@@ -46,7 +46,8 @@ const DEFAULT_STATE = {
   subjectTeacherMappings: [],
   masterTimetableSlots: [],
   teacherTodayClasses: [],
-  leavesList: []
+  leavesList: [],
+  weeklyTopics: []
 };
 
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
@@ -64,6 +65,7 @@ if (!Array.isArray(appState.subjectTeacherMappings)) appState.subjectTeacherMapp
 if (!Array.isArray(appState.masterTimetableSlots)) appState.masterTimetableSlots = [];
 if (!Array.isArray(appState.liveMonitoring)) appState.liveMonitoring = [];
 if (!Array.isArray(appState.leavesList)) appState.leavesList = [];
+if (!Array.isArray(appState.weeklyTopics)) appState.weeklyTopics = [];
 if (!appState.collegeBellSchedule) appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
 
 // Automatic Cleanup of Legacy Hardcoded Mock Data & Default Credentials
@@ -677,6 +679,37 @@ async function syncWithBackend() {
       renderNotifications();
     }
 
+    // 7. Sync Weekly Topics
+    try {
+      const currentWeekKey = getAcademicWeekKey(new Date());
+      const cloudTopics = await ApiClient.getTopics(currentWeekKey, '', dept);
+      if (cloudTopics && Array.isArray(cloudTopics) && cloudTopics.length > 0) {
+        const existingIds = new Set((appState.weeklyTopics || []).map(t => t.id));
+        cloudTopics.forEach(ct => {
+          if (!existingIds.has(ct.id)) {
+            appState.weeklyTopics.unshift({
+              id: ct.id,
+              date: ct.date,
+              day: ct.day,
+              weekKey: ct.week_key,
+              className: ct.class_name,
+              room: ct.room_code || 'C204',
+              period: ct.period,
+              periodName: ct.period_name,
+              time: ct.time_slot,
+              subject: ct.subject,
+              topicTitle: ct.topic_title,
+              teacherName: ct.teacher_name,
+              teacherEmail: ct.teacher_email,
+              department: ct.department || dept,
+              timestamp: Date.now(),
+              status: 'Logged'
+            });
+          }
+        });
+      }
+    } catch (e) {}
+
     saveState();
     renderActiveViews();
     console.log('⚡ [Backend Sync] Successfully updated state from FastAPI backend');
@@ -823,6 +856,7 @@ function switchHodTab(tabId) {
   if (tabId === 'dashboard') renderHodDashboard();
   if (tabId === 'teachers') renderHodTeachers();
   if (tabId === 'leaves') renderHodLeaves();
+  if (tabId === 'topic-tracker') renderHodTopicTracker();
 
   closeHodDrawer();
 }
@@ -1495,6 +1529,7 @@ function renderHodDashboard() {
   renderHodVacantClasses();
   renderHodSubstituteManagement();
   renderHodTodayTimetable();
+  renderHodTodayTopicsSummary();
 }
 
 // Render dynamic HOD Vacant Classes tab
@@ -2108,6 +2143,17 @@ async function handleTeacherCheckIn(classObj) {
   saveState();
   renderTeacherDashboard();
   renderHodDashboard();
+
+  if (isCheckingIn) {
+    const topicCard = document.getElementById('teacher-topic-prompt-card');
+    if (topicCard) {
+      topicCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const topicInput = document.getElementById('teacher-topic-input');
+      if (topicInput && !topicInput.value) {
+        setTimeout(() => topicInput.focus(), 350);
+      }
+    }
+  }
 }
 
 function renderTeacherDashboard() {
@@ -2402,6 +2448,9 @@ function renderTeacherDashboard() {
 
   // Also refresh teacher leaves
   renderTeacherLeaves();
+
+  // Refresh teacher daily topic prompt card
+  renderTeacherTopicPromptCard(focalClassObj);
 }
 
 // Render teacher leave requests status on Dashboard & dedicated Leave Status Tab
@@ -2522,6 +2571,493 @@ function renderTeacherLeaves() {
   if (fullLeavesList) {
     fullLeavesList.innerHTML = myLeaves.map(renderCardItem).join('');
   }
+}
+
+// =========================================================================
+// WEEKLY CLASSROOM TOPIC TRACKER & TEACHER DAILY TOPIC LOGGING
+// =========================================================================
+
+// ISO Academic Week Key: Returns e.g. "2026-W38"
+function getAcademicWeekKey(d = new Date()) {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return `${date.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+// Academic Week Date Range: Returns e.g. "14 Sep - 19 Sep 2026"
+function getAcademicWeekRange(d = new Date()) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diffToMon = date.getDate() - (day === 0 ? 6 : day - 1);
+  const mon = new Date(new Date(d).setDate(diffToMon));
+  const sat = new Date(mon);
+  sat.setDate(mon.getDate() + 5);
+  const monStr = mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const satStr = sat.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${monStr} - ${satStr}`;
+}
+
+// Format week key into readable label
+function formatAcademicWeekLabel(weekKey) {
+  if (!weekKey) return 'Current Week';
+  const currentKey = getAcademicWeekKey(new Date());
+  if (weekKey === currentKey) {
+    return `Current Week (Active): ${getAcademicWeekRange(new Date())}`;
+  }
+  const parts = weekKey.split('-W');
+  if (parts.length === 2) {
+    const yr = parseInt(parts[0], 10);
+    const wk = parseInt(parts[1], 10);
+    const simple = new Date(yr, 0, 1 + (wk - 1) * 7);
+    return `Week ${wk}, ${yr} (${getAcademicWeekRange(simple)})`;
+  }
+  return weekKey;
+}
+
+// Render the Teacher Daily Topic Prompt Card on Faculty Dashboard
+function renderTeacherTopicPromptCard(targetClassObj) {
+  const card = document.getElementById('teacher-topic-prompt-card');
+  if (!card) return;
+
+  const targetClass = targetClassObj || currentActiveTeacherClass;
+  const targetBatch = targetClass?.class || 'IT-A';
+  const targetSubject = targetClass?.subject || targetClass?.fullTitle || 'General Lecture';
+  const targetPeriod = targetClass?.period || 1;
+  const targetPeriodName = targetClass?.periodName || `Period ${targetPeriod}`;
+  const targetTime = targetClass?.time || '09:00 - 09:50';
+
+  const subtitleEl = document.getElementById('teacher-topic-card-subtitle');
+  const statusBadge = document.getElementById('teacher-topic-status-badge');
+  const inputContainer = document.getElementById('teacher-topic-input-container');
+  const viewContainer = document.getElementById('teacher-topic-view-container');
+  const displayText = document.getElementById('teacher-topic-display-text');
+  const inputEl = document.getElementById('teacher-topic-input');
+
+  if (subtitleEl) {
+    subtitleEl.textContent = `${targetPeriodName} (${targetTime}) • ${targetSubject} (${targetBatch})`;
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA');
+  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+
+  const existingTopic = (appState.weeklyTopics || []).find(t => {
+    const matchDate = t.date === dateStr;
+    const matchClass = (t.className || '').toUpperCase() === targetBatch.toUpperCase();
+    const matchPeriod = String(t.period) === String(targetPeriod);
+    const matchTeacher = !t.teacherEmail || (t.teacherEmail && t.teacherEmail.toLowerCase() === currentTeacherEmail) ||
+                         (t.teacherName && t.teacherName.toLowerCase().includes(currentTeacherName));
+    return matchDate && matchClass && matchPeriod;
+  });
+
+  if (existingTopic && existingTopic.topicTitle) {
+    if (inputContainer) inputContainer.classList.add('hidden');
+    if (viewContainer) viewContainer.classList.remove('hidden');
+    if (displayText) displayText.textContent = existingTopic.topicTitle;
+    if (inputEl) inputEl.value = existingTopic.topicTitle;
+
+    if (statusBadge) {
+      statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+      statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block mr-1"></span> ✓ Topic Logged';
+    }
+  } else {
+    if (inputContainer) inputContainer.classList.remove('hidden');
+    if (viewContainer) viewContainer.classList.add('hidden');
+
+    if (statusBadge) {
+      statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse';
+      statusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block mr-1"></span> Pending Entry';
+    }
+  }
+}
+
+// Teacher Saves / Submits Topic
+async function saveTeacherTopic(targetClassObj) {
+  const inputEl = document.getElementById('teacher-topic-input');
+  const topicTitle = (inputEl ? inputEl.value : '').trim();
+
+  if (!topicTitle || topicTitle.length < 2) {
+    showToast('⚠️ Please enter the topic title you plan to teach today.', 'warning');
+    if (inputEl) inputEl.focus();
+    return;
+  }
+
+  const targetClass = targetClassObj || currentActiveTeacherClass;
+  const targetBatch = targetClass?.class || 'IT-A';
+  const targetSubject = targetClass?.subject || targetClass?.fullTitle || 'General Theory';
+  const targetPeriod = targetClass?.period || 1;
+  const targetPeriodName = targetClass?.periodName || `Period ${targetPeriod}`;
+  const targetTime = targetClass?.time || '09:00 - 09:50';
+  const targetRoom = targetClass?.room || 'Room C204';
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA');
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const currentDayName = dayNames[now.getDay()];
+  const weekKey = getAcademicWeekKey(now);
+  const teacherName = appState.currentUser?.name || 'Prof. Arun Kumar';
+  const teacherEmail = appState.currentUser?.email || '';
+  const dept = appState.currentUser?.dept || 'Information Technology';
+
+  if (!Array.isArray(appState.weeklyTopics)) {
+    appState.weeklyTopics = [];
+  }
+
+  const existingIdx = appState.weeklyTopics.findIndex(t =>
+    t.date === dateStr && (t.className || '').toUpperCase() === targetBatch.toUpperCase() && String(t.period) === String(targetPeriod)
+  );
+
+  const topicDoc = {
+    id: existingIdx >= 0 ? appState.weeklyTopics[existingIdx].id : `top_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    date: dateStr,
+    day: currentDayName,
+    weekKey: weekKey,
+    weekLabel: getAcademicWeekRange(now),
+    className: targetBatch,
+    room: targetRoom,
+    period: targetPeriod,
+    periodName: targetPeriodName,
+    time: targetTime,
+    subject: targetSubject,
+    topicTitle: topicTitle,
+    teacherName: teacherName,
+    teacherEmail: teacherEmail,
+    department: dept,
+    timestamp: Date.now(),
+    status: 'Logged'
+  };
+
+  if (existingIdx >= 0) {
+    appState.weeklyTopics[existingIdx] = topicDoc;
+  } else {
+    appState.weeklyTopics.unshift(topicDoc);
+  }
+
+  saveState();
+  renderTeacherTopicPromptCard(targetClass);
+  renderHodTopicTracker();
+  renderHodTodayTopicsSummary();
+
+  showToast(`✓ Topic saved: "${topicTitle}". Broadcasted to HOD live tracker!`, 'success');
+
+  try {
+    if (window.ApiClient && typeof window.ApiClient.saveTopic === 'function') {
+      await window.ApiClient.saveTopic({
+        class_name: targetBatch,
+        room_code: targetRoom,
+        period: targetPeriod,
+        period_name: targetPeriodName,
+        time_slot: targetTime,
+        subject: targetSubject,
+        topic_title: topicTitle,
+        department: dept,
+        teacher_name: teacherName,
+        date: dateStr,
+        week_key: weekKey
+      });
+    }
+  } catch (err) {
+    console.warn('Backend topic sync notice:', err.message);
+  }
+}
+
+// Teacher clicks Edit Topic
+function editTeacherTopic() {
+  const inputContainer = document.getElementById('teacher-topic-input-container');
+  const viewContainer = document.getElementById('teacher-topic-view-container');
+  const inputEl = document.getElementById('teacher-topic-input');
+
+  if (inputContainer) inputContainer.classList.remove('hidden');
+  if (viewContainer) viewContainer.classList.add('hidden');
+  if (inputEl) {
+    inputEl.focus();
+    inputEl.select();
+  }
+}
+
+// Render the Weekly Topic Tracker in HOD Dashboard
+function renderHodTopicTracker() {
+  const tbody = document.getElementById('hod-weekly-topics-tbody');
+  if (!tbody) return;
+
+  const weekFilter = document.getElementById('hod-topic-week-filter');
+  const classFilter = document.getElementById('hod-topic-class-filter');
+  const emptyState = document.getElementById('hod-topics-empty-state');
+  const statTotal = document.getElementById('hod-topic-stat-total');
+  const statClasses = document.getElementById('hod-topic-stat-classes');
+  const statFaculty = document.getElementById('hod-topic-stat-faculty');
+  const countBadge = document.getElementById('hod-topic-table-count-badge');
+  const tableSubtitle = document.getElementById('hod-topic-table-subtitle');
+
+  const topics = appState.weeklyTopics || [];
+  const now = new Date();
+  const currentWeekKey = getAcademicWeekKey(now);
+
+  // 1. Populate Week Selector Dropdown
+  if (weekFilter) {
+    const selectedWeek = weekFilter.value || 'CURRENT';
+    const distinctWeeks = Array.from(new Set([currentWeekKey, ...topics.map(t => t.weekKey).filter(Boolean)])).sort().reverse();
+
+    weekFilter.innerHTML = '';
+    distinctWeeks.forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w;
+      if (w === currentWeekKey) {
+        opt.textContent = `Current Week (Active): ${getAcademicWeekRange(now)}`;
+      } else {
+        opt.textContent = formatAcademicWeekLabel(w);
+      }
+      if (w === selectedWeek || (selectedWeek === 'CURRENT' && w === currentWeekKey)) {
+        opt.selected = true;
+      }
+      weekFilter.appendChild(opt);
+    });
+  }
+
+  // 2. Populate Class Filter Dropdown
+  if (classFilter) {
+    const selectedClass = classFilter.value || 'ALL';
+    const classSet = new Set(['CO4', 'IT-A', 'IT-B']);
+    (appState.classroomsList || []).forEach(r => { if (r.name) classSet.add(r.name); if (r.code) classSet.add(r.code); });
+    (appState.studentBatches || []).forEach(b => { if (b.name) classSet.add(b.name); if (b.code) classSet.add(b.code); });
+    topics.forEach(t => { if (t.className) classSet.add(t.className); });
+
+    const classesList = Array.from(classSet).sort();
+    classFilter.innerHTML = '<option value="ALL">All Classes & Batches</option>';
+    classesList.forEach(cls => {
+      const opt = document.createElement('option');
+      opt.value = cls;
+      opt.textContent = `Class ${cls}`;
+      if (cls === selectedClass) opt.selected = true;
+      classFilter.appendChild(opt);
+    });
+  }
+
+  // 3. Filter Records
+  const activeWeek = (weekFilter && weekFilter.value) ? weekFilter.value : currentWeekKey;
+  const activeClass = (classFilter && classFilter.value) ? classFilter.value : 'ALL';
+
+  const filteredTopics = topics.filter(item => {
+    const matchWeek = !activeWeek || activeWeek === 'CURRENT' ? item.weekKey === currentWeekKey : item.weekKey === activeWeek;
+    const matchClass = !activeClass || activeClass === 'ALL' ? true : (item.className || '').toUpperCase() === activeClass.toUpperCase();
+    return matchWeek && matchClass;
+  });
+
+  // 4. Update Metrics
+  const distinctClassesCovered = new Set(filteredTopics.map(t => t.className).filter(Boolean)).size;
+  const distinctFaculty = new Set(filteredTopics.map(t => t.teacherName || t.teacherEmail).filter(Boolean)).size;
+
+  if (statTotal) statTotal.textContent = filteredTopics.length;
+  if (statClasses) statClasses.textContent = distinctClassesCovered;
+  if (statFaculty) statFaculty.textContent = distinctFaculty;
+  if (countBadge) countBadge.textContent = `${filteredTopics.length} Records`;
+  if (tableSubtitle) {
+    tableSubtitle.textContent = activeWeek === currentWeekKey
+      ? `Current Academic Week (${getAcademicWeekRange(now)})`
+      : `Archived Records for ${formatAcademicWeekLabel(activeWeek)}`;
+  }
+
+  // 5. Render Table Rows
+  tbody.innerHTML = '';
+  if (filteredTopics.length === 0) {
+    if (emptyState) emptyState.classList.remove('hidden');
+  } else {
+    if (emptyState) emptyState.classList.add('hidden');
+    filteredTopics.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-sm';
+
+      const initial = escapeHTML((row.teacherName || 'F').charAt(0).toUpperCase());
+      const formattedDate = row.date ? new Date(row.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '--';
+
+      tr.innerHTML = `
+        <td class="py-3.5 px-4">
+          <div class="font-bold text-slate-900">${escapeHTML(row.day || '')}</div>
+          <div class="text-xs text-slate-500 font-mono">${formattedDate}</div>
+        </td>
+        <td class="py-3.5 px-4">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+            ${escapeHTML(row.className || 'Class')}
+          </span>
+        </td>
+        <td class="py-3.5 px-4">
+          <div class="font-bold text-slate-800 text-xs">${escapeHTML(row.periodName || `Period ${row.period || ''}`)}</div>
+          <div class="text-[11px] font-mono text-slate-500">${escapeHTML(row.time || '')}</div>
+        </td>
+        <td class="py-3.5 px-4">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">${initial}</span>
+            <div>
+              <div class="font-bold text-slate-900 text-xs">${escapeHTML(row.teacherName || 'Faculty')}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${escapeHTML(row.department || 'IT')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3.5 px-4 font-semibold text-slate-800 text-xs">
+          ${escapeHTML(row.subject || '--')}
+        </td>
+        <td class="py-3.5 px-4 max-w-xs">
+          <span class="font-bold text-slate-900 text-xs leading-snug block">${escapeHTML(row.topicTitle || '--')}</span>
+          <span class="text-[10px] text-slate-400">Room: ${escapeHTML(row.room || 'C204')}</span>
+        </td>
+        <td class="py-3.5 px-4">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse-dot"></span>
+            ✓ Logged
+          </span>
+        </td>
+        <td class="py-3.5 px-4 text-right">
+          <button onclick="deleteSingleTopicRecord('${row.id}')" title="Delete record" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+// Render Summary Table on HOD Main Live Monitoring Dashboard
+function renderHodTodayTopicsSummary() {
+  const tbody = document.getElementById('hod-today-topics-tbody');
+  const countBadge = document.getElementById('hod-today-topics-count-badge');
+  const emptyEl = document.getElementById('hod-today-topics-empty');
+  if (!tbody) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA');
+  const todayTopics = (appState.weeklyTopics || []).filter(t => t.date === dateStr);
+
+  if (countBadge) {
+    countBadge.textContent = `${todayTopics.length} ${todayTopics.length === 1 ? 'Topic' : 'Topics'} Logged`;
+  }
+
+  tbody.innerHTML = '';
+  if (todayTopics.length === 0) {
+    if (emptyEl) emptyEl.classList.remove('hidden');
+  } else {
+    if (emptyEl) emptyEl.classList.add('hidden');
+    todayTopics.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 hover:bg-slate-50/80 transition-colors text-sm';
+      const initial = escapeHTML((row.teacherName || 'F').charAt(0).toUpperCase());
+
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-bold text-slate-900">
+          <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-xs font-black border border-indigo-200">
+            ${escapeHTML(row.className || 'Class')}
+          </span>
+        </td>
+        <td class="py-3 px-4 font-mono text-xs font-semibold text-slate-600">
+          ${escapeHTML(row.periodName || `Period ${row.period || ''}`)} (${escapeHTML(row.time || '')})
+        </td>
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">${initial}</span>
+            <span class="text-xs font-semibold text-slate-800">${escapeHTML(row.teacherName || 'Faculty')}</span>
+          </div>
+        </td>
+        <td class="py-3 px-4 font-medium text-slate-800 text-xs">${escapeHTML(row.subject || '--')}</td>
+        <td class="py-3 px-4">
+          <strong class="text-slate-900 text-xs">${escapeHTML(row.topicTitle || '--')}</strong>
+        </td>
+        <td class="py-3 px-4 text-right">
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            ✓ Logged
+          </span>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+// Permanently Delete Week Records (HOD Feature)
+async function confirmDeleteTopicWeek() {
+  const weekFilter = document.getElementById('hod-topic-week-filter');
+  const currentWeekKey = getAcademicWeekKey(new Date());
+  const selectedWeek = (weekFilter && weekFilter.value) ? weekFilter.value : currentWeekKey;
+
+  const weekLabel = formatAcademicWeekLabel(selectedWeek);
+  const confirmed = confirm(`⚠️ PERMANENT DELETE WARNING:\n\nAre you sure you want to permanently delete all topic coverage records for ${weekLabel}?\n\nThis will remove records from the cloud database and cannot be undone.`);
+  if (!confirmed) return;
+
+  const countBefore = (appState.weeklyTopics || []).length;
+  appState.weeklyTopics = (appState.weeklyTopics || []).filter(t => t.weekKey !== selectedWeek);
+  const deletedCount = countBefore - appState.weeklyTopics.length;
+
+  saveState();
+  renderHodTopicTracker();
+  renderHodTodayTopicsSummary();
+
+  showToast(`🗑️ Successfully deleted ${deletedCount} topic records for ${selectedWeek}.`, 'info');
+
+  try {
+    if (window.ApiClient && typeof window.ApiClient.deleteTopicWeek === 'function') {
+      await window.ApiClient.deleteTopicWeek(selectedWeek);
+    }
+  } catch (err) {
+    console.warn('Backend delete week notice:', err.message);
+  }
+}
+
+// Delete Single Topic Record
+function deleteSingleTopicRecord(topicId) {
+  if (!topicId) return;
+  const confirmed = confirm('Remove this specific topic record?');
+  if (!confirmed) return;
+
+  appState.weeklyTopics = (appState.weeklyTopics || []).filter(t => t.id !== topicId);
+  saveState();
+  renderHodTopicTracker();
+  renderHodTodayTopicsSummary();
+  showToast('✓ Record removed.', 'info');
+}
+
+// Refresh & Sync topics with backend
+async function syncTopicTracker() {
+  showToast('🔄 Synchronizing weekly topic tracker...', 'info');
+  try {
+    if (window.ApiClient && typeof window.ApiClient.getTopics === 'function') {
+      const currentWeekKey = getAcademicWeekKey(new Date());
+      const cloudTopics = await window.ApiClient.getTopics(currentWeekKey);
+      if (Array.isArray(cloudTopics) && cloudTopics.length > 0) {
+        const existingIds = new Set((appState.weeklyTopics || []).map(t => t.id));
+        cloudTopics.forEach(ct => {
+          if (!existingIds.has(ct.id)) {
+            appState.weeklyTopics.unshift({
+              id: ct.id,
+              date: ct.date,
+              day: ct.day,
+              weekKey: ct.week_key,
+              className: ct.class_name,
+              room: ct.room_code,
+              period: ct.period,
+              periodName: ct.period_name,
+              time: ct.time_slot,
+              subject: ct.subject,
+              topicTitle: ct.topic_title,
+              teacherName: ct.teacher_name,
+              teacherEmail: ct.teacher_email,
+              department: ct.department,
+              timestamp: Date.now(),
+              status: 'Logged'
+            });
+          }
+        });
+        saveState();
+      }
+    }
+  } catch (e) {
+    console.warn('Topic sync notice:', e.message);
+  }
+  renderHodTopicTracker();
+  renderHodTodayTopicsSummary();
+  showToast('✓ Topic tracker up to date.', 'success');
 }
 
 // =========================================================================
@@ -4085,6 +4621,7 @@ function renderActiveViews() {
   renderHodTeachers();
   renderHodLeaves();
   renderNotifications();
+  renderHodTopicTracker();
   if (typeof updateAllSelectDropdowns === 'function') {
     updateAllSelectDropdowns();
   }
@@ -4133,6 +4670,47 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (data.type === 'TIMETABLE_APPLIED') {
         showToast(`New Timetable (${data.version}) applied campus-wide!`, 'info');
         syncWithBackend();
+      } else if (data.type === 'TOPIC_UPDATE') {
+        const top = data.topic;
+        if (top) {
+          appState.weeklyTopics = appState.weeklyTopics || [];
+          const idx = appState.weeklyTopics.findIndex(t => 
+            t.date === top.date && (t.className || '').toUpperCase() === (top.class_name || '').toUpperCase() && String(t.period) === String(top.period)
+          );
+          const formatted = {
+            id: top.id,
+            date: top.date,
+            day: top.day,
+            weekKey: top.week_key,
+            className: top.class_name,
+            room: top.room_code || 'C204',
+            period: top.period,
+            periodName: top.period_name,
+            time: top.time_slot,
+            subject: top.subject,
+            topicTitle: top.topic_title,
+            teacherName: top.teacher_name,
+            department: data.department || 'Information Technology',
+            timestamp: Date.now(),
+            status: 'Logged'
+          };
+          if (idx >= 0) {
+            appState.weeklyTopics[idx] = formatted;
+          } else {
+            appState.weeklyTopics.unshift(formatted);
+          }
+          saveState();
+          renderHodTopicTracker();
+          renderHodTodayTopicsSummary();
+          renderTeacherTopicPromptCard();
+        }
+      } else if (data.type === 'TOPIC_DELETED') {
+        if (data.week_key) {
+          appState.weeklyTopics = (appState.weeklyTopics || []).filter(t => t.weekKey !== data.week_key);
+          saveState();
+          renderHodTopicTracker();
+          renderHodTodayTopicsSummary();
+        }
       }
     });
 

@@ -1,5 +1,5 @@
-// FOLIO Service Worker v24.0.0 (Enterprise Security Hardened)
-const CACHE_NAME = "folio-v24";
+// FOLIO Service Worker v25.0.0 (Weekly Topic Tracker Hardened)
+const CACHE_NAME = "folio-v25";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
