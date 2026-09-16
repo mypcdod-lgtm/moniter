@@ -1,25 +1,15 @@
 // MyMonitorXX - Core Application Logic, Authentication & RBAC
 
 // Initial State Data
-// Initial State Data - Clean Baseline with Real Administrator (No Mock Data)
+// Initial State Data - Secure Cloud-Backed Baseline (No Hardcoded User Credentials)
 const DEFAULT_STATE = {
   currentUser: null, // null = show login screen
   activeRole: 'admin', // 'admin', 'hod', 'teacher'
   mobileFrame: false,
   teacherCheckedIn: false,
 
-  // User Accounts Directory (Authentication & RBAC) - Administrator Account
-  users: [
-    {
-      id: 'usr-admin-1',
-      name: 'System Administrator',
-      email: 'canvaonly322@gmail.com',
-      altEmail: 'canvaonly322@gmil.com',
-      password: '123BALASELVARAJA123',
-      role: 'admin',
-      dept: 'Central Campus Administration'
-    }
-  ],
+  // User Accounts Directory (Loaded securely from Firebase Cloud Firestore & Auth)
+  users: [],
 
   hodsList: [],
 
@@ -62,18 +52,8 @@ const DEFAULT_STATE = {
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
 let appState = JSON.parse(localStorage.getItem('mymonitor_state') || localStorage.getItem('mymoniter_state')) || DEFAULT_STATE;
 
-// Ensure admin credentials always exist without wiping custom HODs or Teachers
-if (!appState.users || !Array.isArray(appState.users)) {
-  appState.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
-} else {
-  DEFAULT_STATE.users.forEach(defUser => {
-    if (!appState.users.some(u => u.email && u.email.toLowerCase() === defUser.email.toLowerCase())) {
-      appState.users.push(defUser);
-    }
-  });
-}
-
 // Ensure proper array structures
+if (!Array.isArray(appState.users)) appState.users = [];
 if (!Array.isArray(appState.classroomsList)) appState.classroomsList = [];
 if (!Array.isArray(appState.rooms)) appState.rooms = appState.classroomsList;
 if (!Array.isArray(appState.studentBatches)) appState.studentBatches = [];
@@ -86,15 +66,19 @@ if (!Array.isArray(appState.liveMonitoring)) appState.liveMonitoring = [];
 if (!Array.isArray(appState.leavesList)) appState.leavesList = [];
 if (!appState.collegeBellSchedule) appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
 
-// Automatic Cleanup of Legacy Mock Data (Removes mock items so only user-stored data is displayed)
-if (!appState._cleanDataV21) {
+// Automatic Cleanup of Legacy Hardcoded Mock Data & Default Credentials
+if (!appState._cleanDataV22) {
   const legacyMockEmails = ['arun@college.edu', 'kumar@college.edu', 'priya@college.edu', 'suresh@college.edu', 'sneha@college.edu', 'vikram@college.edu', 'hod.it@college.edu', 'sunitha.hod@college.edu'];
   const legacyMockSubjCodes = ['IT301', 'IT302', 'MA301', 'IT303', 'IT304'];
   const legacyMockBatchIds = ['batch-1', 'batch-2', 'batch-3', 'batch-4'];
 
-  appState.users = appState.users.filter(u => !legacyMockEmails.includes((u.email || '').toLowerCase()) && u.id !== 'usr-hod-1' && u.id !== 'usr-teacher-1');
-  appState.hodsList = appState.hodsList.filter(h => !legacyMockEmails.includes((h.email || '').toLowerCase()));
-  appState.teachersList = appState.teachersList.filter(t => !legacyMockEmails.includes((t.email || '').toLowerCase()));
+  appState.users = (appState.users || []).filter(u => {
+    const email = (u.email || '').toLowerCase();
+    return !legacyMockEmails.includes(email) && u.id !== 'usr-hod-1' && u.id !== 'usr-teacher-1';
+  });
+
+  appState.hodsList = (appState.hodsList || []).filter(h => !legacyMockEmails.includes((h.email || '').toLowerCase()));
+  appState.teachersList = (appState.teachersList || []).filter(t => !legacyMockEmails.includes((t.email || '').toLowerCase()));
 
   if (appState.subjectsList.length > 0 && appState.subjectsList.every(s => legacyMockSubjCodes.includes(s.code))) {
     appState.subjectsList = [];
@@ -112,23 +96,32 @@ if (!appState._cleanDataV21) {
   if (appState.masterTimetableSlots.length > 0 && appState.masterTimetableSlots.some(s => s.id === 'slot-1')) {
     appState.masterTimetableSlots = [];
   }
-  appState.leavesList = appState.leavesList.filter(l => l.id !== 'leave-sample-1');
+  appState.leavesList = (appState.leavesList || []).filter(l => l.id !== 'leave-sample-1');
   if (appState.liveMonitoring.length > 0 && appState.liveMonitoring.some(m => m.class === 'IT-A' && m.subject === 'Python')) {
     appState.liveMonitoring = [];
   }
-  appState._cleanDataV21 = true;
+  appState._cleanDataV22 = true;
 }
 
 let cloudSaveTimer = null;
-function saveState() {
-  localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+function saveState(immediateCloud = false) {
+  try {
+    localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+  } catch (e) {
+    console.warn('localStorage cache note:', e.message);
+  }
 
   // Sync to Firebase Cloud Firestore across all devices (PC, Mobile, HOD, Teachers)
   if (window.FirebaseDb && typeof window.FirebaseDb.saveAppState === 'function') {
-    clearTimeout(cloudSaveTimer);
-    cloudSaveTimer = setTimeout(() => {
+    if (immediateCloud) {
+      clearTimeout(cloudSaveTimer);
       window.FirebaseDb.saveAppState(appState);
-    }, 400);
+    } else {
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(() => {
+        window.FirebaseDb.saveAppState(appState);
+      }, 300);
+    }
   }
 }
 
@@ -231,47 +224,32 @@ async function handleLogin(e) {
   const passwordInput = (document.getElementById('login-password')?.value || '').trim();
 
   if (!emailInput || !passwordInput) {
-    showToast('Please enter both Gmail address and password.', 'error');
+    showToast('Please enter both email address and password.', 'error');
     return;
   }
 
   let firebaseToken = null;
-  // Try Firebase authentication if initialized
+  let authSuccess = false;
+
+  // 1. Authenticate against Firebase Cloud Auth
   if (window.FirebaseAuth && window.FirebaseAuth.loginWithEmail) {
     try {
       const fbRes = await window.FirebaseAuth.loginWithEmail(emailInput, passwordInput);
       firebaseToken = fbRes.token;
-      console.log('✅ Firebase Auth success for user:', emailInput);
+      authSuccess = true;
+      console.log('✅ Firebase Cloud Authentication verified for:', emailInput);
     } catch (fbErr) {
-      console.warn('Firebase email login note:', fbErr.code || fbErr.message);
-      // Auto-register in Firebase Auth if user doesn't exist yet
-      if (fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-login-credentials') {
-        if (emailInput === 'canvaonly322@gmail.com' || passwordInput === '123BALASELVARAJA123' || emailInput.includes('canvaonly')) {
-          try {
-            const regRes = await window.FirebaseAuth.registerWithEmail(emailInput, passwordInput);
-            firebaseToken = regRes.token;
-            console.log('✅ Firebase auto-registered Admin account in Firebase Auth!');
-          } catch (regErr) {
-            console.warn('Firebase auto-registration note:', regErr.message);
-          }
-        }
-      }
+      console.warn('Firebase Auth note:', fbErr.code || fbErr.message);
     }
   }
 
-  // Ensure default admin always exists in directory
-  if (!appState.users || !appState.users.some(u => u.role === 'admin')) {
-    appState.users = JSON.parse(JSON.stringify(DEFAULT_STATE.users));
-  }
-
-  // 1. Find user matching email, altEmail, or admin alias in users
-  let user = appState.users.find(u => 
+  // 2. Find user in registered directory (synced in real-time from Cloud Firestore)
+  let user = (appState.users || []).find(u => 
     (u.email && u.email.toLowerCase() === emailInput) || 
-    (u.altEmail && u.altEmail.toLowerCase() === emailInput) ||
-    (emailInput.includes('canvaonly') && u.role === 'admin')
+    (u.altEmail && u.altEmail.toLowerCase() === emailInput)
   );
 
-  // 2. Fallback: Search in hodsList if added via HOD management
+  // 3. Check HOD directory
   if (!user && appState.hodsList) {
     const hodMatch = appState.hodsList.find(h => h.email && h.email.toLowerCase() === emailInput);
     if (hodMatch) {
@@ -279,16 +257,17 @@ async function handleLogin(e) {
         id: 'usr-hod-' + (hodMatch.id || Date.now()),
         name: hodMatch.name,
         email: hodMatch.email,
-        password: passwordInput,
+        password: hodMatch.password || passwordInput,
         role: 'hod',
         dept: hodMatch.dept || 'Information Technology'
       };
+      appState.users = appState.users || [];
       appState.users.push(user);
-      saveState();
+      saveState(true);
     }
   }
 
-  // 3. Fallback: Search in teachersList if added via Teacher management
+  // 4. Check Faculty Teacher directory
   if (!user && appState.teachersList) {
     const teacherMatch = appState.teachersList.find(t => t.email && t.email.toLowerCase() === emailInput);
     if (teacherMatch) {
@@ -296,69 +275,44 @@ async function handleLogin(e) {
         id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
         name: teacherMatch.name,
         email: teacherMatch.email,
-        password: passwordInput,
+        password: teacherMatch.password || passwordInput,
         role: 'teacher',
         dept: teacherMatch.dept || 'Information Technology',
         subject: teacherMatch.subject || ''
       };
+      appState.users = appState.users || [];
       appState.users.push(user);
-      saveState();
+      saveState(true);
     }
   }
 
-  // 4. Auto-recognize Master Admin if password matches or admin email alias used
-  if (!user && (passwordInput === '123BALASELVARAJA123' || emailInput.includes('canvaonly') || emailInput.includes('selvaraja'))) {
-    user = {
-      id: 'usr-admin-1',
-      name: 'System Administrator',
-      email: emailInput.includes('@') ? emailInput : 'canvaonly322@gmail.com',
-      password: '123BALASELVARAJA123',
-      role: 'admin',
-      dept: 'Central Campus Administration'
-    };
-    appState.users.push(user);
-    saveState();
-  }
-
-  // 5. If authenticated via Firebase but not in local array (e.g. created on PC, now logging in on Mobile)
-  if (!user && firebaseToken) {
-    const isMasterAdmin = emailInput.includes('canvaonly') || emailInput.includes('admin') || passwordInput === '123BALASELVARAJA123';
-    const isHod = emailInput.includes('hod') || emailInput.includes('head');
-    const role = isMasterAdmin ? 'admin' : (isHod ? 'hod' : 'teacher');
-    user = {
-      id: 'usr-fb-' + Date.now().toString(36),
-      name: emailInput.split('@')[0],
-      email: emailInput,
-      role: role,
-      dept: 'Information Technology'
-    };
-    appState.users.push(user);
-    if (role === 'hod') {
-      appState.hodsList = appState.hodsList || [];
-      appState.hodsList.push({
-        id: Date.now(),
-        name: user.name,
-        email: user.email,
-        dept: 'Information Technology',
-        roomsManaged: 'Assigned Block',
-        assignedFaculty: 10,
-        status: 'Active'
-      });
+  // 5. Verify credentials strictly
+  if (!authSuccess) {
+    if (!user) {
+      showToast('No registered campus account found with this email.', 'error');
+      return;
     }
-    saveState();
+    if (user.password && user.password !== passwordInput) {
+      showToast('Incorrect password. Please verify your credentials and try again.', 'error');
+      return;
+    }
+  } else {
+    // Firebase Cloud Auth succeeded; ensure profile exists in local state
+    if (!user) {
+      user = {
+        id: 'usr-fb-' + Date.now().toString(36),
+        name: emailInput.split('@')[0],
+        email: emailInput,
+        role: (appState.users && appState.users.length === 0) ? 'admin' : 'teacher',
+        dept: 'Information Technology'
+      };
+      appState.users = appState.users || [];
+      appState.users.push(user);
+      saveState(true);
+    }
   }
 
-  if (!user) {
-    showToast('Account not found with this email. Check credentials or select from 1-Click login below.', 'error');
-    return;
-  }
-
-  if (user.password && user.password !== passwordInput && !firebaseToken && passwordInput !== '123BALASELVARAJA123') {
-    showToast('Incorrect password. Please verify and try again.', 'error');
-    return;
-  }
-
-  // Authenticate user
+  // Authenticate user session
   appState.currentUser = {
     id: user.id,
     name: user.name,
@@ -368,16 +322,14 @@ async function handleLogin(e) {
     subject: user.subject || ''
   };
   appState.activeRole = user.role;
-  saveState();
+  saveState(true);
 
-  // Connect ApiClient Auth Token (Firebase JWT if available, else dev token)
+  // Connect ApiClient Auth Token
   if (window.ApiClient) {
     if (firebaseToken) {
       ApiClient.setAuthToken(firebaseToken);
     } else {
-      if (user.role === 'admin') ApiClient.setAuthToken('dev-admin');
-      else if (user.role === 'hod') ApiClient.setAuthToken('dev-hod');
-      else ApiClient.setAuthToken('dev-teacher');
+      ApiClient.setAuthToken(user.role === 'admin' ? 'dev-admin' : (user.role === 'hod' ? 'dev-hod' : 'dev-teacher'));
     }
   }
 
@@ -388,7 +340,7 @@ async function handleLogin(e) {
 
   updateAuthUI();
   setRole(user.role);
-  showToast(`Welcome back, ${user.name}! Logged in as ${user.role.toUpperCase()}.`, 'success');
+  showToast(`Welcome, ${user.name}! Signed in as ${user.role.toUpperCase()}.`, 'success');
 
   // Trigger real-time data sync with backend
   syncWithBackend();
@@ -407,17 +359,17 @@ async function handleGoogleLogin() {
     console.log('Google login user:', gUser.email);
 
     // Match existing user by Google email, or create session
-    let user = appState.users.find(u => u.email.toLowerCase() === gUser.email.toLowerCase());
+    let user = (appState.users || []).find(u => (u.email || '').toLowerCase() === gUser.email.toLowerCase());
     if (!user) {
-      // Default to teacher or admin if matches admin email
-      const isAdmin = gUser.email.toLowerCase() === 'canvaonly322@gmail.com';
+      const isFirstUser = !appState.users || appState.users.length === 0;
       user = {
         id: 'usr-g-' + gUser.uid.substring(0, 8),
         name: gUser.displayName || 'Google User',
         email: gUser.email,
-        role: isAdmin ? 'admin' : 'teacher',
+        role: isFirstUser ? 'admin' : 'teacher',
         dept: 'Information Technology'
       };
+      appState.users = appState.users || [];
       appState.users.push(user);
     }
 
@@ -430,7 +382,7 @@ async function handleGoogleLogin() {
       subject: user.subject || ''
     };
     appState.activeRole = user.role;
-    saveState();
+    saveState(true);
 
     if (window.ApiClient) {
       ApiClient.setAuthToken(token);
@@ -448,24 +400,6 @@ async function handleGoogleLogin() {
     console.error('Google Sign-In Error:', err);
     showToast(`Google Sign-In failed: ${err.message}`, 'error');
   }
-}
-
-function quickLogin(role) {
-  const emailInput = document.getElementById('login-email');
-  const passInput = document.getElementById('login-password');
-
-  if (role === 'admin') {
-    emailInput.value = 'canvaonly322@gmail.com';
-    passInput.value = '123BALASELVARAJA123';
-  } else if (role === 'hod') {
-    emailInput.value = 'hod.it@college.edu';
-    passInput.value = 'hodpassword123';
-  } else if (role === 'teacher') {
-    emailInput.value = 'arun@college.edu';
-    passInput.value = 'teacherpass123';
-  }
-
-  handleLogin();
 }
 
 function handleLogout() {
@@ -507,8 +441,13 @@ function updateAuthUI() {
   if (userEmailEl) userEmailEl.textContent = appState.currentUser.email;
   if (userAvatarEl) userAvatarEl.textContent = appState.currentUser.name.charAt(0);
 
+  const drawerRoleEl = document.getElementById('drawer-user-role');
+  const drawerEmailEl = document.getElementById('drawer-user-email');
+  if (drawerRoleEl) drawerRoleEl.textContent = `${appState.currentUser.role.toUpperCase()} SESSION`;
+  if (drawerEmailEl) drawerEmailEl.textContent = appState.currentUser.email;
+
   // STRICT ROLE ACCESS CONTROL:
-  // ONLY Master Admin (canvaonly322@gmail.com or role='admin') can see role switcher.
+  // ONLY Administrator can see role switcher.
   // HOD and Teacher will NEVER see the role switcher.
   if (roleSwitcher) {
     if (appState.currentUser.role === 'admin') {
@@ -2912,7 +2851,7 @@ async function handleAdminAddSubject(e) {
   };
 
   appState.subjectsList.push(newSubj);
-  saveState();
+  saveState(true);
   renderAdminSubjects();
   if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
 
@@ -2970,7 +2909,7 @@ async function handleAdminAddRoom(e) {
 
   appState.classroomsList.push(newRoom);
   appState.rooms = appState.classroomsList;
-  saveState();
+  saveState(true);
   renderAdminRooms();
   if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
 
@@ -3015,7 +2954,7 @@ async function handleDeleteSubject(subjectId, subjectCode) {
   if (!confirm(`Are you sure you want to delete subject ${subjectCode}?`)) return;
 
   appState.subjectsList = appState.subjectsList.filter(s => (s.id !== subjectId && s.code !== subjectCode));
-  saveState();
+  saveState(true);
   renderAdminSubjects();
   showToast(`Subject ${subjectCode} deleted.`, 'info');
 
@@ -3035,7 +2974,7 @@ async function handleDeleteRoom(roomId, roomCode) {
 
   appState.classroomsList = (appState.classroomsList || []).filter(r => (r.id !== roomId && r.room !== roomCode));
   appState.rooms = appState.classroomsList;
-  saveState();
+  saveState(true);
   renderAdminRooms();
   updateAllSelectDropdowns();
   showToast(`Classroom ${roomCode} deleted.`, 'info');
@@ -3228,6 +3167,18 @@ function updateAllSelectDropdowns() {
     });
     if (cur) mapRoom.value = cur;
   }
+
+  // 8. Update datalist for HOD Add Teacher subject input
+  const subjDatalist = document.getElementById('registered-subjects-list');
+  if (subjDatalist) {
+    subjDatalist.innerHTML = '';
+    (appState.subjectsList || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.label = `${s.code} (${s.dept || ''} - ${s.type || 'Theory'})`;
+      subjDatalist.appendChild(opt);
+    });
+  }
 }
 window.updateAllSelectDropdowns = updateAllSelectDropdowns;
 
@@ -3339,7 +3290,7 @@ function handleAdminAddBatch(e) {
     baseRoom
   });
 
-  saveState();
+  saveState(true);
   renderAdminBatches();
   updateAllSelectDropdowns();
   closeModal('modal-add-batch');
@@ -3351,7 +3302,7 @@ function handleDeleteBatch(batchId, batchName) {
   if (!confirm(`Are you sure you want to delete class batch ${batchName}?`)) return;
 
   appState.studentBatches = (appState.studentBatches || []).filter(b => b.id !== batchId && b.name !== batchName);
-  saveState();
+  saveState(true);
   renderAdminBatches();
   updateAllSelectDropdowns();
   showToast(`Class batch ${batchName} deleted.`, 'info');
@@ -4139,26 +4090,30 @@ function applyCloudState(cloudState) {
     });
   }
 
-  // Synchronize dynamic campus assets
-  if (Array.isArray(cloudState.subjectsList) && cloudState.subjectsList.length > 0) {
+  // Synchronize dynamic campus assets directly from Cloud Firestore
+  if (Array.isArray(cloudState.subjectsList)) {
     appState.subjectsList = cloudState.subjectsList;
   }
-  if (Array.isArray(cloudState.classroomsList) && cloudState.classroomsList.length > 0) {
+  if (Array.isArray(cloudState.classroomsList)) {
     appState.classroomsList = cloudState.classroomsList;
+    appState.rooms = cloudState.classroomsList;
+  } else if (Array.isArray(cloudState.rooms)) {
+    appState.classroomsList = cloudState.rooms;
+    appState.rooms = cloudState.rooms;
   }
-  if (Array.isArray(cloudState.studentBatches) && cloudState.studentBatches.length > 0) {
+  if (Array.isArray(cloudState.studentBatches)) {
     appState.studentBatches = cloudState.studentBatches;
   }
-  if (Array.isArray(cloudState.masterTimetableSlots) && cloudState.masterTimetableSlots.length > 0) {
+  if (Array.isArray(cloudState.masterTimetableSlots)) {
     appState.masterTimetableSlots = cloudState.masterTimetableSlots;
   }
-  if (Array.isArray(cloudState.timetableVersions) && cloudState.timetableVersions.length > 0) {
+  if (Array.isArray(cloudState.timetableVersions)) {
     appState.timetableVersions = cloudState.timetableVersions;
   }
-  if (Array.isArray(cloudState.subjectTeacherMappings) && cloudState.subjectTeacherMappings.length > 0) {
+  if (Array.isArray(cloudState.subjectTeacherMappings)) {
     appState.subjectTeacherMappings = cloudState.subjectTeacherMappings;
   }
-  if (Array.isArray(cloudState.liveMonitoring) && cloudState.liveMonitoring.length > 0) {
+  if (Array.isArray(cloudState.liveMonitoring)) {
     appState.liveMonitoring = cloudState.liveMonitoring;
   }
   if (cloudState.collegeBellSchedule) {
@@ -4166,22 +4121,20 @@ function applyCloudState(cloudState) {
   }
   if (Array.isArray(cloudState.leavesList)) {
     appState.leavesList = cloudState.leavesList;
-    renderHodLeaves();
-    renderTeacherLeaves();
-    renderTeacherDashboard();
-    renderHodDashboard();
   }
   if (Array.isArray(cloudState.notificationsList)) {
     appState.notificationsList = cloudState.notificationsList;
   }
 
   // Update local storage cache
-  localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+  try {
+    localStorage.setItem('mymonitor_state', JSON.stringify(appState));
+  } catch (e) {}
 
-  // Refresh dynamic UI elements
-  renderQuickLoginButtons();
-  if (appState.currentUser) {
-    renderActiveViews();
+  // Immediately refresh all views and dynamic dropdowns across portal
+  renderActiveViews();
+  if (typeof updateAllSelectDropdowns === 'function') {
+    updateAllSelectDropdowns();
   }
 }
 
