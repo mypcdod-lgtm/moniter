@@ -1,5 +1,5 @@
-// FOLIO Service Worker v26.0.0 (Theory+Lab, Continuous Blocks & Duty Timeliness)
-const CACHE_NAME = "folio-v26";
+// FOLIO Service Worker v27.0.0 (Dynamic Faculty Identity, Lab-Only Allocation & Batch Guard)
+const CACHE_NAME = "folio-v27";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

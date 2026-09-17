@@ -377,36 +377,50 @@ async function handleLogin(e) {
   );
 
   // 3. Check HOD directory
-  if (!user && appState.hodsList) {
+  // 3. Check HOD directory
+  if (appState.hodsList) {
     const hodMatch = appState.hodsList.find(h => h.email && h.email.toLowerCase() === emailInput);
     if (hodMatch) {
-      user = {
-        id: 'usr-hod-' + (hodMatch.id || Date.now()),
-        name: hodMatch.name,
-        email: hodMatch.email,
-        role: 'hod',
-        dept: hodMatch.dept || 'Information Technology'
-      };
-      appState.users = appState.users || [];
-      appState.users.push(user);
+      if (user) {
+        user.name = hodMatch.name || user.name;
+        user.role = 'hod';
+        user.dept = hodMatch.dept || user.dept || 'Information Technology';
+      } else {
+        user = {
+          id: 'usr-hod-' + (hodMatch.id || Date.now()),
+          name: hodMatch.name,
+          email: hodMatch.email,
+          role: 'hod',
+          dept: hodMatch.dept || 'Information Technology'
+        };
+        appState.users = appState.users || [];
+        appState.users.push(user);
+      }
       saveState(true);
     }
   }
 
   // 4. Check Faculty Teacher directory
-  if (!user && appState.teachersList) {
+  if (appState.teachersList) {
     const teacherMatch = appState.teachersList.find(t => t.email && t.email.toLowerCase() === emailInput);
     if (teacherMatch) {
-      user = {
-        id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
-        name: teacherMatch.name,
-        email: teacherMatch.email,
-        role: 'teacher',
-        dept: teacherMatch.dept || 'Information Technology',
-        subject: teacherMatch.subject || ''
-      };
-      appState.users = appState.users || [];
-      appState.users.push(user);
+      if (user) {
+        user.name = teacherMatch.name || user.name;
+        user.role = 'teacher';
+        user.dept = teacherMatch.dept || user.dept || 'Information Technology';
+        user.subject = teacherMatch.subject || user.subject || '';
+      } else {
+        user = {
+          id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
+          name: teacherMatch.name,
+          email: teacherMatch.email,
+          role: 'teacher',
+          dept: teacherMatch.dept || 'Information Technology',
+          subject: teacherMatch.subject || ''
+        };
+        appState.users = appState.users || [];
+        appState.users.push(user);
+      }
       saveState(true);
     }
   }
@@ -2206,7 +2220,13 @@ function parseTimeToMinutes(timeStr) {
 
 // Dynamically extract the teacher's schedule for today from masterTimetableSlots or fallback
 function getTeacherTodaySchedule(teacherName) {
-  const currentTeacherName = (teacherName || appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const teacherUser = (appState.teachersList || []).find(t => 
+    (t.email && (t.email.toLowerCase() === (appState.currentUser?.email || '').toLowerCase())) ||
+    (t.name && (t.name.toLowerCase() === (appState.currentUser?.name || '').toLowerCase()))
+  );
+  const resolvedTeacherName = (teacherName || teacherUser?.name || appState.currentUser?.name || '').trim();
+  const currentTeacherName = resolvedTeacherName.toLowerCase();
+  const teacherFirstName = currentTeacherName.split(' ')[0] || '';
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   let currentDay = dayNames[now.getDay()];
@@ -2238,13 +2258,15 @@ function getTeacherTodaySchedule(teacherName) {
     daySlots.forEach(slot => {
       const cellVal = slot[pk.pKey] || '';
       const cellLower = cellVal.toLowerCase();
-      const matches = cellLower.includes(currentTeacherName) || 
-                      (currentTeacherName.includes('arun') && cellLower.includes('arun')) ||
-                      (currentTeacherName.split(' ')[0] && cellLower.includes(currentTeacherName.split(' ')[0]));
+      const matches = currentTeacherName && (
+        cellLower.includes(currentTeacherName) ||
+        (teacherFirstName && teacherFirstName.length >= 3 && cellLower.includes(teacherFirstName))
+      );
 
       if (matches) {
         let subject = cellVal;
-        let room = 'Room C204';
+        const batch = (appState.studentBatches || []).find(b => b.name === slot.section);
+        let room = batch?.baseRoom || 'Classroom';
         if (cellVal.includes('(') && cellVal.includes(')')) {
           const parts = cellVal.split('(');
           subject = parts[0].trim();
@@ -2454,11 +2476,36 @@ function renderTeacherDashboard() {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayDayName = dayNames[now.getDay()];
 
+  // Resolve actual teacher profile and update DOM header, sidebar, drawer
+  const teacherUser = (appState.teachersList || []).find(t => 
+    (t.email && (t.email.toLowerCase() === (appState.currentUser?.email || '').toLowerCase())) ||
+    (t.name && (t.name.toLowerCase() === (appState.currentUser?.name || '').toLowerCase()))
+  );
+  const teacherDisplayName = teacherUser?.name || appState.currentUser?.name || 'Faculty Member';
+  const teacherDisplayDept = teacherUser?.dept || appState.currentUser?.dept || 'Department of Technology';
+  const teacherDisplayId = teacherUser?.id ? `#FAC-${teacherUser.id}` : (appState.currentUser?.id || '#FAC');
+
+  const sidebarNameEl = document.getElementById('teacher-sidebar-name');
+  const sidebarAvatarEl = document.getElementById('teacher-sidebar-avatar');
+  const sidebarDeptEl = document.getElementById('teacher-sidebar-dept');
+  const sidebarIdEl = document.getElementById('teacher-sidebar-id');
+  const topbarNameEl = document.getElementById('teacher-mobile-topbar-name');
+  const drawerNameEl = document.getElementById('teacher-drawer-name');
+  const classesDescEl = document.getElementById('teacher-classes-assigned-desc');
+
+  if (sidebarNameEl) sidebarNameEl.textContent = teacherDisplayName;
+  if (sidebarAvatarEl) sidebarAvatarEl.textContent = teacherDisplayName.charAt(0).toUpperCase();
+  if (sidebarDeptEl) sidebarDeptEl.textContent = teacherDisplayDept;
+  if (sidebarIdEl) sidebarIdEl.textContent = teacherDisplayId;
+  if (topbarNameEl) topbarNameEl.textContent = `${teacherDisplayName} • Tap ☰ to access desk menu`;
+  if (drawerNameEl) drawerNameEl.textContent = `${teacherDisplayName} • ${teacherDisplayDept}`;
+  if (classesDescEl) classesDescEl.textContent = `Detailed overview of all classes assigned to ${teacherDisplayName} for today`;
+
   // Check if teacher is on approved leave today
   const localToday = now.toLocaleDateString('en-CA');
   const utcToday = now.toISOString().split('T')[0];
-  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
-  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+  const currentTeacherName = teacherDisplayName.toLowerCase();
+  const currentTeacherEmail = (appState.currentUser?.email || teacherUser?.email || '').toLowerCase();
 
   // Render Daily On-Duty Master Switch Card
   const teacherEmail = currentTeacherEmail || 'faculty@college.edu';
@@ -2785,8 +2832,12 @@ function renderTeacherDashboard() {
 
 // Render teacher leave requests status on Dashboard & dedicated Leave Status Tab
 function renderTeacherLeaves() {
-  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
-  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+  const teacherUser = (appState.teachersList || []).find(t => 
+    (t.email && (t.email.toLowerCase() === (appState.currentUser?.email || '').toLowerCase())) ||
+    (t.name && (t.name.toLowerCase() === (appState.currentUser?.name || '').toLowerCase()))
+  );
+  const currentTeacherName = (teacherUser?.name || appState.currentUser?.name || '').toLowerCase();
+  const currentTeacherEmail = (appState.currentUser?.email || teacherUser?.email || '').toLowerCase();
   
   // Find all leave requests submitted by this teacher
   const allLeaves = appState.leavesList || [];
@@ -2972,8 +3023,12 @@ function renderTeacherTopicPromptCard(targetClassObj) {
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-CA');
-  const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
-  const currentTeacherName = (appState.currentUser?.name || 'Arun Kumar').toLowerCase();
+  const teacherUser = (appState.teachersList || []).find(t => 
+    (t.email && (t.email.toLowerCase() === (appState.currentUser?.email || '').toLowerCase())) ||
+    (t.name && (t.name.toLowerCase() === (appState.currentUser?.name || '').toLowerCase()))
+  );
+  const currentTeacherName = (teacherUser?.name || appState.currentUser?.name || '').toLowerCase();
+  const currentTeacherEmail = (appState.currentUser?.email || teacherUser?.email || '').toLowerCase();
 
   const existingTopic = (appState.weeklyTopics || []).find(t => {
     const matchDate = t.date === dateStr;
@@ -3028,10 +3083,14 @@ async function saveTeacherTopic(targetClassObj) {
   const dateStr = now.toLocaleDateString('en-CA');
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const currentDayName = dayNames[now.getDay()];
+  const teacherUser = (appState.teachersList || []).find(t => 
+    (t.email && (t.email.toLowerCase() === (appState.currentUser?.email || '').toLowerCase())) ||
+    (t.name && (t.name.toLowerCase() === (appState.currentUser?.name || '').toLowerCase()))
+  );
+  const teacherName = teacherUser?.name || appState.currentUser?.name || 'Faculty Member';
+  const teacherEmail = appState.currentUser?.email || teacherUser?.email || '';
+  const dept = teacherUser?.dept || appState.currentUser?.dept || 'Information Technology';
   const weekKey = getAcademicWeekKey(now);
-  const teacherName = appState.currentUser?.name || 'Prof. Arun Kumar';
-  const teacherEmail = appState.currentUser?.email || '';
-  const dept = appState.currentUser?.dept || 'Information Technology';
 
   if (!Array.isArray(appState.weeklyTopics)) {
     appState.weeklyTopics = [];
@@ -4178,33 +4237,29 @@ function updateAllSelectDropdowns() {
     if (cur) mapSubj.value = cur;
   }
 
-  const mapRoom = document.getElementById('map-room');
-  if (mapRoom) {
-    const cur = mapRoom.value;
-    mapRoom.innerHTML = '<option value="">Auto-assign</option>';
-    (appState.classroomsList || []).forEach(r => {
+  const mapLabRoom = document.getElementById('map-lab-room') || document.getElementById('map-room-alt');
+  if (mapLabRoom) {
+    const cur = mapLabRoom.value;
+    mapLabRoom.innerHTML = '<option value="">-- Select Laboratory / Special Room --</option>';
+    
+    // Filter rooms specifically for Laboratory, Seminar Hall, or rooms with 'Lab' in type/name
+    const labRooms = (appState.classroomsList || []).filter(r => {
+      const type = (r.type || '').toLowerCase();
+      const code = (r.room || '').toLowerCase();
+      return type.includes('lab') || type.includes('seminar') || code.includes('lab');
+    });
+
+    const roomsToRender = labRooms.length > 0 ? labRooms : (appState.classroomsList || []);
+    roomsToRender.forEach(r => {
       const opt = document.createElement('option');
       opt.value = r.room;
-      opt.textContent = r.room;
-      mapRoom.appendChild(opt);
+      opt.textContent = `${r.room} (${r.type || 'Laboratory'})`;
+      mapLabRoom.appendChild(opt);
     });
-    if (cur) mapRoom.value = cur;
+    if (cur) mapLabRoom.value = cur;
   }
 
-  const mapRoomAlt = document.getElementById('map-room-alt');
-  if (mapRoomAlt) {
-    const cur = mapRoomAlt.value;
-    mapRoomAlt.innerHTML = '<option value="">Auto-assign Lab Room</option>';
-    (appState.classroomsList || []).forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r.room;
-      opt.textContent = `${r.room} (${r.type || 'Room'})`;
-      mapRoomAlt.appendChild(opt);
-    });
-    if (cur) mapRoomAlt.value = cur;
-  }
-
-  // 8. Populate registered classes checkboxes in modal-add-subject-mapping
+  // 8. Populate registered student batches only in modal-add-subject-mapping
   populateMappingClassesCheckboxes();
 
   // 9. Update datalist for HOD Add Teacher subject input
@@ -4221,7 +4276,7 @@ function updateAllSelectDropdowns() {
 }
 window.updateAllSelectDropdowns = updateAllSelectDropdowns;
 
-// Helper: Populate only registered classes in Add Mapping modal (No Free Text Typing)
+// Helper: Populate only registered student batches in Add Mapping modal (Exclude physical rooms)
 function populateMappingClassesCheckboxes() {
   const container = document.getElementById('map-classes-container');
   if (!container) return;
@@ -4230,14 +4285,11 @@ function populateMappingClassesCheckboxes() {
   (appState.studentBatches || []).forEach(b => {
     if (b.name) classNames.add(b.name.trim());
   });
-  (appState.classroomsList || []).forEach(r => {
-    if (r.room) classNames.add(r.room.trim());
-  });
 
   if (classNames.size === 0) {
     container.innerHTML = `
       <div class="col-span-2 text-center text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
-        ⚠️ No classes registered yet. Please add classes in <strong>Student Batches</strong> or <strong>Infrastructure</strong> first.
+        ⚠️ No student classes/batches registered yet. Please add student sections in <strong>Student Batches</strong> first (e.g. IT-A, CSE-B).
       </div>
     `;
     updateSelectedMappingClassesCount();
@@ -4272,17 +4324,20 @@ function handleMapFormatChange(val) {
   const integratedContainer = document.getElementById('map-integrated-quota-container');
   const labBlockContainer = document.getElementById('map-lab-block-container');
   const quotaInput = document.getElementById('map-quota');
+  const quotaSub = document.getElementById('map-single-quota-sub');
 
   if (val === 'Theory') {
     if (singleContainer) singleContainer.classList.remove('hidden');
     if (integratedContainer) integratedContainer.classList.add('hidden');
     if (labBlockContainer) labBlockContainer.classList.add('hidden');
     if (quotaInput) quotaInput.value = '5';
+    if (quotaSub) quotaSub.textContent = 'e.g. 5 or 6 lectures per week';
   } else if (val === 'Lab') {
     if (singleContainer) singleContainer.classList.remove('hidden');
     if (integratedContainer) integratedContainer.classList.add('hidden');
     if (labBlockContainer) labBlockContainer.classList.remove('hidden');
     if (quotaInput) quotaInput.value = '4';
+    if (quotaSub) quotaSub.textContent = 'e.g. 4 lab periods per week';
   } else if (val === 'Theory + Lab') {
     if (singleContainer) singleContainer.classList.add('hidden');
     if (integratedContainer) integratedContainer.classList.remove('hidden');
@@ -4475,25 +4530,27 @@ function handleAddSubjectMapping(e) {
   let theoryQuota = 0;
   let labQuota = 0;
   let labBlockSize = 1;
-  let room = 'C204';
+  let labRoom = '';
+
+  const selectedLabRoom = (document.getElementById('map-lab-room')?.value || document.getElementById('map-room-alt')?.value || '').trim();
 
   if (type === 'Theory + Lab') {
     theoryQuota = parseInt(document.getElementById('map-theory-quota')?.value) || 3;
     labQuota = parseInt(document.getElementById('map-lab-quota')?.value) || 4;
     labBlockSize = parseInt(document.getElementById('map-lab-block-size')?.value) || 2;
     quota = theoryQuota + labQuota;
-    room = (document.getElementById('map-room-alt')?.value || document.getElementById('map-room')?.value || '').trim() || 'C204 / Lab 1';
+    labRoom = selectedLabRoom || 'Laboratory 1';
   } else if (type === 'Lab') {
     quota = parseInt(document.getElementById('map-quota')?.value) || 4;
     labQuota = quota;
     labBlockSize = parseInt(document.getElementById('map-lab-block-size')?.value) || 2;
-    room = (document.getElementById('map-room')?.value || '').trim() || 'Lab 1';
+    labRoom = selectedLabRoom || 'Laboratory 1';
   } else {
-    // Theory
+    // Theory: students stay in their own assigned classroom!
     quota = parseInt(document.getElementById('map-quota')?.value) || 5;
     theoryQuota = quota;
     labBlockSize = 1;
-    room = (document.getElementById('map-room')?.value || '').trim() || 'C204';
+    labRoom = '';
   }
 
   const mappingObj = {
@@ -4506,7 +4563,8 @@ function handleAddSubjectMapping(e) {
     theoryQuota,
     labQuota,
     labBlockSize,
-    room,
+    labRoom,
+    room: labRoom || 'Own Classroom',
     created_at: new Date().toISOString()
   };
 
@@ -4584,11 +4642,20 @@ function renderSubjectMappings() {
       quotaDisplay = `<span class="font-bold text-xs bg-slate-100 text-slate-800 px-2.5 py-1 rounded-lg">${escapeHTML(m.quota)} periods / wk</span>`;
     }
 
+    let roomBadge = '';
+    if (m.type === 'Theory') {
+      roomBadge = '📍 Base Classroom (Self)';
+    } else if (m.type === 'Lab') {
+      roomBadge = `🔬 Lab: ${escapeHTML(m.labRoom || m.room || 'Laboratory')}`;
+    } else {
+      roomBadge = `📍 Own Classroom (Th) + 🔬 Lab: ${escapeHTML(m.labRoom || m.room || 'Laboratory')}`;
+    }
+
     tr.innerHTML = `
       <td class="py-2.5 px-3 font-semibold text-slate-900">${escapeHTML(m.teacher)}</td>
       <td class="py-2.5 px-3">
         <span class="font-bold text-indigo-700">${escapeHTML(m.subject)}</span>
-        <span class="text-[10px] text-slate-400 block">${m.room ? '📍 ' + escapeHTML(m.room) : ''}</span>
+        <span class="text-[10px] text-slate-500 font-medium block">${roomBadge}</span>
       </td>
       <td class="py-2.5 px-3">
         <div class="flex flex-wrap gap-1 items-center">
@@ -4674,6 +4741,12 @@ async function runTimetableGeneration() {
   // sectionDaySubjectCount[(day, section, subject)] = count
   const sectionDaySubjectCount = new Map();
 
+  // Helper: Retrieve assigned base classroom for a student batch
+  const getBatchBaseRoom = (batchName) => {
+    const batch = (appState.studentBatches || []).find(b => b.name && b.name.toLowerCase() === (batchName || '').toLowerCase());
+    return batch?.baseRoom || 'Classroom';
+  };
+
   // 1. Separate & Expand Lab and Theory Tasks (Handles Theory + Lab Integrated)
   const labTasks = [];
   const theoryTasks = [];
@@ -4687,7 +4760,7 @@ async function runTimetableGeneration() {
         sections: secList,
         quota: m.labQuota || m.quota || 4,
         blockSize: parseInt(m.labBlockSize) || 2,
-        room: m.room || 'Lab 1'
+        room: m.labRoom || m.room || 'Laboratory 1'
       });
     } else if (m.type === 'Theory + Lab') {
       labTasks.push({
@@ -4696,22 +4769,20 @@ async function runTimetableGeneration() {
         sections: secList,
         quota: m.labQuota || 4,
         blockSize: parseInt(m.labBlockSize) || 2,
-        room: (m.room && m.room.includes('Lab')) ? m.room : 'Lab 1'
+        room: m.labRoom || m.room || 'Laboratory 1'
       });
       theoryTasks.push({
         teacher: m.teacher,
         subject: `${m.subject} (Theory)`,
         sections: secList,
-        quota: m.theoryQuota || 3,
-        room: (m.room && !m.room.includes('Lab')) ? m.room : 'C204'
+        quota: m.theoryQuota || 3
       });
     } else {
       theoryTasks.push({
         teacher: m.teacher,
         subject: m.subject,
         sections: secList,
-        quota: m.quota || m.theoryQuota || 5,
-        room: m.room || 'C204'
+        quota: m.quota || m.theoryQuota || 5
       });
     }
   });
@@ -4824,13 +4895,14 @@ async function runTimetableGeneration() {
           });
 
           const chosen = candidateMappings[0];
+          const secBaseRoom = getBatchBaseRoom(sec);
           const tKey = `${day}_${p}_${chosen.teacher}`;
-          const rKey = `${day}_${p}_${chosen.room || 'C204'}`;
+          const rKey = `${day}_${p}_${secBaseRoom}`;
 
           teacherBusy.set(tKey, chosen.teacher);
-          roomBusy.set(rKey, chosen.room || 'C204');
+          roomBusy.set(rKey, secBaseRoom);
 
-          const slotText = `${chosen.subject} (${chosen.teacher} • ${chosen.room || 'C204'})`;
+          const slotText = `${chosen.subject} (${chosen.teacher} • ${secBaseRoom})`;
           sectionSchedule.set(sKey, slotText);
 
           sectionSubjectCount.set(`${sec}_${chosen.subject}`, (sectionSubjectCount.get(`${sec}_${chosen.subject}`) || 0) + 1);
@@ -4845,11 +4917,13 @@ async function runTimetableGeneration() {
 
           if (anyAvailable.length > 0 && Math.random() > 0.4) {
             const chosen = anyAvailable[Math.floor(Math.random() * anyAvailable.length)];
+            const secBaseRoom = getBatchBaseRoom(sec);
             teacherBusy.set(`${day}_${p}_${chosen.teacher}`, chosen.teacher);
-            sectionSchedule.set(sKey, `${chosen.subject} (${chosen.teacher} • ${chosen.room || 'C204'})`);
+            sectionSchedule.set(sKey, `${chosen.subject} (${chosen.teacher} • ${secBaseRoom})`);
           } else {
             // Elective / Seminar / Library slot
-            sectionSchedule.set(sKey, (p === 7) ? 'Library / Seminar' : (p === 6 ? 'Sports / Club' : 'Study Hour'));
+            const secBaseRoom = getBatchBaseRoom(sec);
+            sectionSchedule.set(sKey, (p === 7) ? `Library / Seminar (${secBaseRoom})` : (p === 6 ? `Sports / Club (${secBaseRoom})` : `Study Hour (${secBaseRoom})`));
           }
         }
       }
