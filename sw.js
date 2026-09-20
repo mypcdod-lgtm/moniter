@@ -1,5 +1,5 @@
-// FOLIO Service Worker v27.0.0 (Dynamic Faculty Identity, Lab-Only Allocation & Batch Guard)
-const CACHE_NAME = "folio-v27";
+// FOLIO Service Worker v28.0.0 (Afternoon Cutoff, 9AM Late Comer Alert & Real-time Cross-Desk Sync)
+const CACHE_NAME = "folio-v28";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

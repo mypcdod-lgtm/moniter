@@ -309,6 +309,13 @@ async def report_on_duty(payload: DutyReportRequest, db = Depends(get_db), curre
     # Operating college start: 09:00 AM (540 mins)
     # If turned ON after 09:00 AM, teacher is marked LATE COMER
     # If turned ON after 09:50 AM (Period 1 end), first period was missed
+    # Afternoon cutoff: 12:00 PM (720 mins). Cannot report ON_DUTY in the afternoon.
+    if payload.status == "ON_DUTY" and cur_mins >= 720:
+        raise HTTPException(
+            status_code=400,
+            detail="Duty reporting is closed in the afternoon (after 12:00 PM). Unreported classes remain marked as VACANT."
+        )
+
     is_late_comer = False
     first_period_missed = False
     if payload.status == "ON_DUTY" and cur_mins > 540:

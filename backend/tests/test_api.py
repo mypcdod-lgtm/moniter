@@ -125,11 +125,29 @@ async def test_duty_report_and_timeliness():
             "department": "Information Technology",
             "status": "ON_DUTY"
         }
+        now_check = datetime.datetime.now()
+        cur_m = now_check.hour * 60 + now_check.minute
         res = await ac.post("/api/attendance/duty-report", json=duty_payload, headers=headers_teacher)
-        assert res.status_code == 200
-        report = res.json()
-        assert report["status"] == "ON_DUTY"
-        assert report["teacher_email"] == "arun@college.edu"
+        if cur_m >= 720:
+            # Afternoon cutoff: ON_DUTY must be rejected with 400
+            assert res.status_code == 400
+            assert "afternoon" in res.json()["detail"].lower()
+        else:
+            assert res.status_code == 200
+            report = res.json()
+            assert report["status"] == "ON_DUTY"
+            assert report["teacher_email"] == "arun@college.edu"
+
+        # OFF_DUTY is always permitted at any time
+        off_payload = {
+            "teacher_name": "Arun Kumar",
+            "teacher_email": "arun@college.edu",
+            "department": "Information Technology",
+            "status": "OFF_DUTY"
+        }
+        res_off = await ac.post("/api/attendance/duty-report", json=off_payload, headers=headers_teacher)
+        assert res_off.status_code == 200
+        assert res_off.json()["status"] == "OFF_DUTY"
 
         # Check retrieval
         res_get = await ac.get("/api/attendance/duty-report?department=Information%20Technology")

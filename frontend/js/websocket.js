@@ -58,6 +58,10 @@ class WebSocketClient {
             this.dispatch("topic_update", payload);
           } else if (payload.type === "TOPIC_DELETED") {
             this.dispatch("topic_deleted", payload);
+          } else if (payload.type === "DUTY_REPORT_UPDATE") {
+            this.dispatch("duty_report_update", payload);
+          } else if (payload.type === "CHECK_IN_UPDATE") {
+            this.dispatch("check_in_update", payload);
           }
         } catch (e) {
           console.warn("[WS] Non-JSON live message:", event.data);

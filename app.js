@@ -1611,6 +1611,13 @@ function renderHodDashboard() {
       const vacantItem = allTodayClasses.find(c => c.status === 'VACANT') || allTodayClasses[0];
       bannerAction.innerHTML = `<button onclick="openSubstituteModal(${vacantItem.id})" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"><span>🔴 Assign Substitute</span></button>`;
     }
+  } else if (allTodayClasses.some(c => c.isLateComer)) {
+    const lateFacultyNames = Array.from(new Set(allTodayClasses.filter(c => c.isLateComer).map(c => c.teacher)));
+    if (bannerTitle) bannerTitle.textContent = 'Faculty Late Arrival Alert';
+    if (bannerDesc) bannerDesc.textContent = `${lateFacultyNames.length} faculty member(s) (${lateFacultyNames.join(', ')}) reported on duty after 09:00 AM (Late Comers today).`;
+    if (bannerAction) {
+      bannerAction.innerHTML = '<span class="px-3.5 py-1.5 bg-amber-100 text-amber-800 font-bold text-xs rounded-xl border border-amber-300 flex items-center gap-1.5"><span>⚠️</span> Late Comers Logged</span>';
+    }
   } else {
     if (bannerTitle) bannerTitle.textContent = 'HOD Action Protocol • Live Monitoring';
     if (bannerDesc) bannerDesc.textContent = 'All active periods are staffed with verified faculty presence. Live classroom telemetry active.';
@@ -1659,14 +1666,17 @@ function renderHodDashboard() {
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot"></span>
               ${escapeHTML(row.exactStatus || 'ACTIVE')}
             </span>
-            ${row.isLateComer ? '<span class="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 w-fit">LATE COMER</span>' : ''}
+            ${row.isLateComer ? `<span class="text-[9px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 w-fit">⚠️ LATE COMER (${escapeHTML(row.reportedAt || '')})</span>` : ''}
           </div>`;
       } else if (row.status === 'SCHEDULED') {
         statusBadge = `
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-            ${escapeHTML(row.exactStatus || 'SCHEDULED')}
-          </span>`;
+          <div class="flex flex-col gap-0.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              ${escapeHTML(row.exactStatus || 'SCHEDULED')}
+            </span>
+            ${row.isLateComer ? `<span class="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 w-fit">LATE COMER (${escapeHTML(row.reportedAt || '')})</span>` : ''}
+          </div>`;
       } else if (row.status === 'COMPLETED') {
         statusBadge = `
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
@@ -1717,9 +1727,12 @@ function renderHodDashboard() {
         <td class="py-3.5 px-4 font-bold text-slate-900">${escapeHTML(row.class)}</td>
         <td class="py-3.5 px-4 font-medium text-slate-800">${escapeHTML(row.subject)}</td>
         <td class="py-3.5 px-4 text-slate-700">
-          <div class="flex items-center gap-2">
-            <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
-            <span>${escapeHTML(row.teacher)}</span>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">${facultyInitial}</span>
+              <span class="font-semibold text-slate-900">${escapeHTML(row.teacher)}</span>
+            </div>
+            ${row.isLateComer ? `<span class="inline-flex items-center gap-1 text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 mt-1 w-fit">⚠️ LATE COMER (${escapeHTML(row.reportedAt || 'After 09:00 AM')})</span>` : ''}
           </div>
         </td>
         <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-600">${escapeHTML(row.room)}</td>
@@ -2331,6 +2344,14 @@ async function handleTeacherDutyToggle(isChecked) {
   const teacherName = appState.currentUser?.name || 'Faculty Member';
   const dept = appState.currentUser?.dept || 'Information Technology';
 
+  // Afternoon cutoff: 12:00 PM (720 mins). Cannot report ON_DUTY in the afternoon.
+  if (isChecked && currentMinutes >= 720) {
+    showToast('⚠️ Duty reporting is closed in the afternoon (after 12:00 PM). Classes remain marked as VACANT.', 'warning');
+    const dutyToggle = document.getElementById('teacher-duty-toggle');
+    if (dutyToggle) dutyToggle.checked = false;
+    return;
+  }
+
   appState.teacherDutyReports = appState.teacherDutyReports || {};
   appState.teacherDutyReports[localToday] = appState.teacherDutyReports[localToday] || {};
 
@@ -2523,16 +2544,26 @@ function renderTeacherDashboard() {
   const dutyLatenessTag = document.getElementById('teacher-duty-lateness-tag');
   const dutyIconBox = document.getElementById('teacher-duty-icon-box');
 
-  if (dutyToggle) dutyToggle.checked = Boolean(isDutyOn);
+  const isAfternoon = currentMinutes >= 720;
+
+  if (dutyToggle) {
+    dutyToggle.checked = Boolean(isDutyOn);
+    // Afternoon cutoff: lock reporting toggle in the afternoon (after 12:00 PM)
+    dutyToggle.disabled = isAfternoon;
+  }
+
   if (dutyBadge) {
-    if (!isDutyOn) {
+    if (isAfternoon && !isDutyOn) {
+      dutyBadge.textContent = 'REPORTING CLOSED (AFTERNOON)';
+      dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300';
+    } else if (!isDutyOn) {
       dutyBadge.textContent = 'OFF DUTY';
       dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200';
     } else if (dutyReport.is_late_comer) {
-      dutyBadge.textContent = 'LATE COMER';
+      dutyBadge.textContent = isAfternoon ? 'ON DUTY (LATE COMER - LOCKED)' : 'LATE COMER';
       dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse';
     } else {
-      dutyBadge.textContent = 'ON DUTY (ON TIME)';
+      dutyBadge.textContent = isAfternoon ? 'ON DUTY (LOCKED FOR AFTERNOON)' : 'ON DUTY (ON TIME)';
       dutyBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300';
     }
   }
@@ -2542,8 +2573,20 @@ function renderTeacherDashboard() {
       dutyTimestampBox.classList.remove('hidden');
       dutyTimeText.textContent = `Reported: ${dutyReport.reported_at}`;
       if (dutyLatenessTag) {
-        dutyLatenessTag.textContent = dutyReport.is_late_comer ? '⚠️ Reported after period start' : '✓ Reported on time';
-        dutyLatenessTag.className = dutyReport.is_late_comer ? 'font-bold text-amber-700' : 'font-bold text-emerald-700';
+        if (isAfternoon) {
+          dutyLatenessTag.textContent = dutyReport.is_late_comer ? '⚠️ Reported late (Locked for afternoon)' : '✓ Duty locked for afternoon';
+          dutyLatenessTag.className = dutyReport.is_late_comer ? 'font-bold text-amber-700' : 'font-bold text-emerald-700';
+        } else {
+          dutyLatenessTag.textContent = dutyReport.is_late_comer ? '⚠️ Reported after 09:00 AM (Late Comer)' : '✓ Reported on time';
+          dutyLatenessTag.className = dutyReport.is_late_comer ? 'font-bold text-amber-700' : 'font-bold text-emerald-700';
+        }
+      }
+    } else if (isAfternoon && !isDutyOn) {
+      dutyTimestampBox.classList.remove('hidden');
+      dutyTimeText.textContent = 'Duty cutoff passed at 12:00 PM';
+      if (dutyLatenessTag) {
+        dutyLatenessTag.textContent = '🔴 Classes marked as VACANT for substitution';
+        dutyLatenessTag.className = 'font-bold text-rose-700';
       }
     } else {
       dutyTimestampBox.classList.add('hidden');
@@ -5258,16 +5301,60 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.teacher) target.teacher = data.teacher;
           renderHodDashboard();
         }
-      } else if (data.type === 'SUBSTITUTE_ASSIGNED') {
-        const target = appState.liveMonitoring.find(c => c.id == data.session_id || c.class === data.class_name);
-        if (target) {
-          target.status = 'SUBSTITUTE';
-          target.substituteTeacher = data.substitute;
+      } else if (data.type === 'DUTY_REPORT_UPDATE') {
+        const report = data.duty_report;
+        if (report && report.date) {
+          appState.teacherDutyReports = appState.teacherDutyReports || {};
+          appState.teacherDutyReports[report.date] = appState.teacherDutyReports[report.date] || {};
+          const tEmail = (report.teacher_email || '').toLowerCase();
+          if (tEmail) {
+            appState.teacherDutyReports[report.date][tEmail] = report;
+          }
+          saveState(true);
+          renderHodDashboard();
+          renderTeacherDashboard();
+          const latenessNotice = report.is_late_comer ? ' (Flagged as LATE COMER)' : '';
+          showToast(`📋 Faculty Duty Update: ${report.teacher_name} is ${report.status}${latenessNotice}.`, 'info');
+        }
+      } else if (data.type === 'CHECK_IN_UPDATE') {
+        const session = (appState.liveMonitoring || []).find(c => 
+          c.room === data.room_code || 
+          c.class === data.class_name ||
+          (data.teacher_email && (c.teacher_email || '').toLowerCase() === data.teacher_email.toLowerCase())
+        );
+        if (session) {
+          session.status = 'ACTIVE';
+          session.exactStatus = data.exact_status || 'IN ROOM (ON TIME)';
           renderHodDashboard();
         }
-      } else if (data.type === 'TIMETABLE_APPLIED') {
-        showToast(`New Timetable (${data.version}) applied campus-wide!`, 'info');
+      } else if (data.type === 'SUBSTITUTE_ASSIGNED' || data.type === 'SUBSTITUTION_ALERT') {
+        const sub = data.substitution || data;
+        const target = (appState.liveMonitoring || []).find(c => c.id == (sub.session_id || data.session_id) || c.class === (sub.class_name || data.class_name));
+        if (target) {
+          target.status = 'SUBSTITUTE';
+          target.substituteTeacher = sub.substitute_teacher || data.substitute;
+          renderHodDashboard();
+          renderTeacherDashboard();
+        }
+      } else if (data.type === 'TIMETABLE_APPLIED' || data.type === 'TIMETABLE_UPDATE') {
+        showToast(`New Timetable (${data.version || 'Updated'}) applied campus-wide!`, 'info');
         syncWithBackend();
+      } else if (data.type === 'LEAVE_STATUS_UPDATE') {
+        const leave = data.leave;
+        if (leave && leave.id) {
+          appState.leavesList = appState.leavesList || [];
+          const lIdx = appState.leavesList.findIndex(l => l.id == leave.id);
+          if (lIdx >= 0) {
+            appState.leavesList[lIdx] = { ...appState.leavesList[lIdx], ...leave };
+          } else {
+            appState.leavesList.unshift(leave);
+          }
+          saveState(true);
+          renderHodDashboard();
+          renderTeacherDashboard();
+          renderHodLeaves();
+          renderTeacherLeaves();
+        }
       } else if (data.type === 'TOPIC_UPDATE') {
         const top = data.topic;
         if (top) {
@@ -5458,6 +5545,12 @@ function applyCloudState(cloudState) {
   }
   if (Array.isArray(cloudState.notificationsList)) {
     appState.notificationsList = cloudState.notificationsList;
+  }
+  if (cloudState.teacherDutyReports && typeof cloudState.teacherDutyReports === 'object') {
+    appState.teacherDutyReports = { ...(appState.teacherDutyReports || {}), ...cloudState.teacherDutyReports };
+  }
+  if (Array.isArray(cloudState.weeklyTopics)) {
+    appState.weeklyTopics = cloudState.weeklyTopics;
   }
 
   // Update local storage cache
