@@ -526,7 +526,8 @@ async function handleLogin(e) {
 
   updateAuthUI();
   setRole(user.role);
-  showToast(`Welcome, ${user.name}! Signed in as ${user.role.toUpperCase()}.`, 'success');
+  const displayRole = user.role === 'teacher' ? 'STAFF' : user.role.toUpperCase();
+  showToast(`Welcome, ${user.name}! Signed in as ${displayRole}.`, 'success');
 
   // Trigger real-time data sync with backend
   syncWithBackend();
@@ -580,7 +581,8 @@ async function handleGoogleLogin() {
 
     updateAuthUI();
     setRole(user.role);
-    showToast(`Signed in with Google as ${user.name}! (${user.role.toUpperCase()})`, 'success');
+    const gDisplayRole = user.role === 'teacher' ? 'STAFF' : user.role.toUpperCase();
+    showToast(`Signed in with Google as ${user.name}! (${gDisplayRole})`, 'success');
     syncWithBackend();
   } catch (err) {
     console.error('Google Sign-In Error:', err);
@@ -622,14 +624,15 @@ function updateAuthUI() {
   const userEmailEl = document.getElementById('header-user-email');
   const userAvatarEl = document.getElementById('header-user-avatar');
 
+  const currentRoleDisplay = appState.currentUser.role === 'teacher' ? 'STAFF' : appState.currentUser.role.toUpperCase();
   if (userNameEl) userNameEl.textContent = appState.currentUser.name;
-  if (userRoleEl) userRoleEl.textContent = appState.currentUser.role.toUpperCase();
+  if (userRoleEl) userRoleEl.textContent = currentRoleDisplay;
   if (userEmailEl) userEmailEl.textContent = appState.currentUser.email;
   if (userAvatarEl) userAvatarEl.textContent = appState.currentUser.name.charAt(0);
 
   const drawerRoleEl = document.getElementById('drawer-user-role');
   const drawerEmailEl = document.getElementById('drawer-user-email');
-  if (drawerRoleEl) drawerRoleEl.textContent = `${appState.currentUser.role.toUpperCase()} SESSION`;
+  if (drawerRoleEl) drawerRoleEl.textContent = `${currentRoleDisplay} SESSION`;
   if (drawerEmailEl) drawerEmailEl.textContent = appState.currentUser.email;
 
   // STRICT ROLE ACCESS CONTROL:
@@ -1199,7 +1202,7 @@ async function handleHodAddTeacher(e) {
     }
 
     if (checkedDepts.length === 0) {
-      showToast('Please select at least 1 department for this teacher.', 'error');
+      showToast('Please select at least 1 department for this staff member.', 'error');
       return;
     }
 
@@ -1224,9 +1227,9 @@ async function handleHodAddTeacher(e) {
     if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
       try {
         await window.FirebaseAuth.registerWithEmail(email, password);
-        console.log('✅ Teacher registered in Firebase Cloud Auth!');
+        console.log('✅ Staff member registered in Firebase Cloud Auth!');
       } catch (err) {
-        console.warn('Firebase Teacher cloud registration note:', err.code || err.message);
+        console.warn('Firebase Staff cloud registration note:', err.code || err.message);
         if (err.code === 'auth/email-already-in-use') {
           showToast('This email is already registered in Firebase Authentication.', 'error');
           return;
@@ -1274,7 +1277,7 @@ async function handleHodAddTeacher(e) {
     renderHodTeachers();
     renderQuickLoginButtons();
     closeModal('modal-hod-add-teacher');
-    showToast(`Teacher account for ${name} created successfully!`, 'success');
+    showToast(`Staff account for ${name} created successfully!`, 'success');
     const addTeacherForm = document.getElementById('form-hod-add-teacher');
     if (addTeacherForm) addTeacherForm.reset();
 
@@ -1732,7 +1735,7 @@ function renderHodDashboard() {
     } else if (isBreakTime) {
       tableSub.textContent = 'Break in progress • Resuming next period';
     } else {
-      tableSub.textContent = 'Real-time classroom telemetry & verified teacher check-in status';
+      tableSub.textContent = 'Real-time classroom telemetry & verified staff check-in status';
     }
   }
 
@@ -3679,7 +3682,7 @@ function applyGeneratedTimetable() {
   saveState();
   renderAdminTables();
   renderAdminTimetable();
-  showToast(`Timetable ${targetVer} applied campus-wide! HODs and Teachers notified.`, 'success');
+  showToast(`Timetable ${targetVer} applied campus-wide! HODs and Staff notified.`, 'success');
 
   // Persist to FastAPI Backend and broadcast to all clients via WebSockets
   if (window.ApiClient && window.lastGeneratedTimetableId) {
@@ -3736,7 +3739,7 @@ function renderAdminTables() {
     tTable.innerHTML = '';
     const teachers = deduplicateListByEmail(appState.teachersList || []);
     if (teachers.length === 0) {
-      tTable.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs font-medium">No faculty teachers registered yet. Click "+ Add Teacher" to onboard teaching faculty.</td></tr>';
+      tTable.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs font-medium">No faculty staff registered yet. Click "+ Add Staff" to onboard teaching faculty.</td></tr>';
     } else {
       teachers.forEach(t => {
         const tr = document.createElement('tr');
@@ -3884,8 +3887,8 @@ function renderHodTeachers() {
   if (teachers.length === 0) {
     container.innerHTML = `
       <div class="col-span-full p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-        <p class="font-bold text-xs text-slate-600">No Department Teachers Added</p>
-        <p class="text-[11px] mt-0.5">Click "+ Add Teacher" to assign faculty to this department.</p>
+        <p class="font-bold text-xs text-slate-600">No Department Staff Added</p>
+        <p class="text-[11px] mt-0.5">Click "+ Add Staff" to assign staff to this department.</p>
       </div>
     `;
     return;
@@ -3903,7 +3906,7 @@ function renderHodTeachers() {
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
           ${escapeHTML(t.status)}
         </span>
-        <button onclick="handleDeleteTeacher('${escapeHTML(t.id)}', '${escapeHTML(t.name)}')" title="Delete Teacher" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+        <button onclick="handleDeleteTeacher('${escapeHTML(t.id)}', '${escapeHTML(t.name)}')" title="Delete Staff Member" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
@@ -4274,7 +4277,7 @@ async function handleDeleteRoom(roomId, roomCode) {
 
 // 3. Delete Teacher
 async function handleDeleteTeacher(teacherId, teacherName) {
-  if (!confirm(`Are you sure you want to delete teacher ${teacherName}?`)) return;
+  if (!confirm(`Are you sure you want to delete staff member ${teacherName}?`)) return;
 
   const target = (appState.teachersList || []).find(t => String(t.id) === String(teacherId) || t.name === teacherName);
   const targetEmail = (target?.email || '').toLowerCase().trim();
@@ -4293,7 +4296,7 @@ async function handleDeleteTeacher(teacherId, teacherName) {
   renderAdminTables();
   renderHodTeachers();
   updateAllSelectDropdowns();
-  showToast(`Teacher ${teacherName} removed.`, 'info');
+  showToast(`Staff member ${teacherName} removed.`, 'info');
 
   if (window.ApiClient && teacherId) {
     try {
@@ -4401,7 +4404,7 @@ function updateAllSelectDropdowns() {
   const ttTeacherSelect = document.getElementById('manual-tt-teacher');
   if (ttTeacherSelect) {
     const currentVal = ttTeacherSelect.value;
-    ttTeacherSelect.innerHTML = '<option value="">-- Select Teacher --</option>';
+    ttTeacherSelect.innerHTML = '<option value="">-- Select Staff --</option>';
     deduplicateListByEmail(appState.teachersList || []).forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.name;
@@ -4431,7 +4434,7 @@ function updateAllSelectDropdowns() {
   const mapTeacher = document.getElementById('map-teacher');
   if (mapTeacher) {
     const cur = mapTeacher.value;
-    mapTeacher.innerHTML = '<option value="">-- Select Teacher --</option>';
+    mapTeacher.innerHTML = '<option value="">-- Select Staff --</option>';
     deduplicateListByEmail(appState.teachersList || []).forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.name;
@@ -4739,7 +4742,7 @@ function handleAddSubjectMapping(e) {
   const sections = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
 
   if (!teacher || !subject || sections.length === 0) {
-    showToast('Teacher, Subject, and at least one Assigned Class are required.', 'error');
+    showToast('Staff, Subject, and at least one Assigned Class are required.', 'error');
     return;
   }
 
@@ -5192,7 +5195,7 @@ async function runTimetableGeneration() {
 
   renderAdminTables();
   renderAdminTimetable();
-  showToast(`✓ Timetable draft ${draftVersion} created with 0 teacher clashes and 0 room collisions!`, 'success');
+  showToast(`✓ Timetable draft ${draftVersion} created with 0 staff clashes and 0 room collisions!`, 'success');
 
   // Sync with FastAPI backend if live
   if (window.ApiClient) {
@@ -5222,7 +5225,7 @@ function handleManualTimetableSubmit(e) {
   const teacher = document.getElementById('manual-tt-teacher').value.trim();
 
   if (!subject || !teacher) {
-    showToast('Subject and Teacher are required for schedule slot.', 'error');
+    showToast('Subject and Staff are required for schedule slot.', 'error');
     return;
   }
 
@@ -5234,7 +5237,7 @@ function handleManualTimetableSubmit(e) {
   });
 
   if (existingTeacherSlot) {
-    if (!confirm(`⚠️ WARNING: Teacher ${teacher} is already teaching ${existingTeacherSlot.section} on ${day} during Period ${period}! Are you sure you want to double-book?`)) {
+    if (!confirm(`⚠️ WARNING: Staff member ${teacher} is already teaching ${existingTeacherSlot.section} on ${day} during Period ${period}! Are you sure you want to double-book?`)) {
       return;
     }
   }
