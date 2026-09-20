@@ -52,6 +52,34 @@ const DEFAULT_STATE = {
   hodSelectedDeptFilter: 'ALL'
 };
 
+// Deduplication Utilities to prevent duplicate user/teacher/HOD entries
+function deduplicateUsersByEmail(users) {
+  if (!Array.isArray(users)) return [];
+  const seen = new Set();
+  return users.filter(u => {
+    if (!u) return false;
+    const email = (u.email || '').toLowerCase().trim();
+    if (!email) return true;
+    if (seen.has(email)) return false;
+    seen.add(email);
+    return true;
+  });
+}
+
+function deduplicateListByEmail(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.filter(item => {
+    if (!item) return false;
+    const email = (item.email || '').toLowerCase().trim();
+    const name = (item.name || '').toLowerCase().trim();
+    const key = email ? `email::${email}` : (name ? `name::${name}` : `id::${item.id}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // Load saved state (support legacy typo 'mymoniter_state' and proper 'mymonitor_state')
 let appState = JSON.parse(localStorage.getItem('mymonitor_state') || localStorage.getItem('mymoniter_state')) || DEFAULT_STATE;
 
@@ -130,6 +158,11 @@ if (Array.isArray(appState.hodsList)) {
 if (Array.isArray(appState.teachersList)) {
   appState.teachersList.forEach(t => { delete t.password; });
 }
+
+// Clean and deduplicate user accounts, HODs, and teachers in loaded local state
+appState.users = deduplicateUsersByEmail(appState.users);
+appState.hodsList = deduplicateListByEmail(appState.hodsList);
+appState.teachersList = deduplicateListByEmail(appState.teachersList);
 
 let cloudSaveTimer = null;
 function saveState(immediateCloud = false) {
@@ -264,67 +297,86 @@ function togglePasswordVisibility(inputId) {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
+let isSubmittingAdmin = false;
 async function handleAddAdmin(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const name = (document.getElementById('new-admin-name')?.value || '').trim();
-  const email = (document.getElementById('new-admin-email')?.value || '').trim().toLowerCase();
-  const password = (document.getElementById('new-admin-password')?.value || '').trim();
-  const roleType = document.getElementById('new-admin-role-type')?.value || 'General Admin';
+  if (isSubmittingAdmin) return;
+  isSubmittingAdmin = true;
 
-  if (!name || !email || !password) {
-    showToast('Admin Name, Email, and Password are required.', 'error');
-    return;
-  }
+  const submitBtn = document.querySelector('#form-add-admin button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 
-  if (!validateEmail(email)) {
-    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
-    return;
-  }
+  try {
+    const name = (document.getElementById('new-admin-name')?.value || '').trim();
+    const email = (document.getElementById('new-admin-email')?.value || '').trim().toLowerCase();
+    const password = (document.getElementById('new-admin-password')?.value || '').trim();
+    const roleType = document.getElementById('new-admin-role-type')?.value || 'General Admin';
 
-  const passCheck = validatePassword(password);
-  if (!passCheck.valid) {
-    showToast(passCheck.message, 'error');
-    return;
-  }
+    if (!name || !email || !password) {
+      showToast('Admin Name, Email, and Password are required.', 'error');
+      return;
+    }
 
-  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
-    showToast('A user with this Email already exists.', 'error');
-    return;
-  }
+    if (!validateEmail(email)) {
+      showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+      return;
+    }
 
-  // Register in Firebase Cloud Auth (passwords are hashed on Google servers via scrypt)
-  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
-    try {
-      await window.FirebaseAuth.registerWithEmail(email, password);
-      console.log('✅ Firebase Auth registered new admin:', email);
-    } catch (err) {
-      console.warn('Firebase Auth registration note:', err.message);
-      if (err.code === 'auth/email-already-in-use') {
-        showToast('This email is already registered in Firebase Authentication.', 'error');
-        return;
+    const passCheck = validatePassword(password);
+    if (!passCheck.valid) {
+      showToast(passCheck.message, 'error');
+      return;
+    }
+
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
+      showToast('A user with this Email already exists.', 'error');
+      return;
+    }
+
+    // Register in Firebase Cloud Auth (passwords are hashed on Google servers via scrypt)
+    if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+      try {
+        await window.FirebaseAuth.registerWithEmail(email, password);
+        console.log('✅ Firebase Auth registered new admin:', email);
+      } catch (err) {
+        console.warn('Firebase Auth registration note:', err.message);
+        if (err.code === 'auth/email-already-in-use') {
+          showToast('This email is already registered in Firebase Authentication.', 'error');
+          return;
+        }
       }
     }
+
+    // Secondary duplicate check after await in case of concurrent execution
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
+      showToast('A user with this Email already exists.', 'error');
+      return;
+    }
+
+    // Create public user profile in state WITHOUT plaintext password
+    const newAdmin = {
+      id: 'usr-admin-' + Date.now(),
+      name,
+      email,
+      role: 'admin',
+      dept: roleType,
+      isOnline: false,
+      created_at: new Date().toISOString()
+    };
+
+    appState.users = appState.users || [];
+    appState.users.push(newAdmin);
+    appState.users = deduplicateUsersByEmail(appState.users);
+
+    saveState(true);
+    closeModal('modal-add-admin');
+    showToast(`Administrator account for ${name} created successfully!`, 'success');
+    const form = document.getElementById('form-add-admin');
+    if (form) form.reset();
+  } finally {
+    isSubmittingAdmin = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
-
-  // Create public user profile in state WITHOUT plaintext password
-  const newAdmin = {
-    id: 'usr-admin-' + Date.now(),
-    name,
-    email,
-    role: 'admin',
-    dept: roleType,
-    isOnline: false,
-    created_at: new Date().toISOString()
-  };
-
-  appState.users = appState.users || [];
-  appState.users.push(newAdmin);
-
-  saveState(true);
-  closeModal('modal-add-admin');
-  showToast(`Administrator account for ${name} created successfully!`, 'success');
-  const form = document.getElementById('form-add-admin');
-  if (form) form.reset();
 }
 
 function renderQuickLoginButtons() {
@@ -630,7 +682,7 @@ async function syncWithBackend() {
     // 2. Sync Teachers
     const teachers = await ApiClient.getTeachers(dept);
     if (teachers && teachers.length > 0) {
-      appState.teachersList = teachers.map((t, idx) => ({
+      appState.teachersList = deduplicateListByEmail(teachers.map((t, idx) => ({
         id: t.id || t._id || idx + 1,
         name: t.name,
         email: t.email,
@@ -638,7 +690,7 @@ async function syncWithBackend() {
         dept: t.department || 'IT',
         workload: t.workload || '16 hrs/wk',
         status: t.status || 'Available'
-      }));
+      })));
     }
 
     // 3. Sync Timetable Versions
@@ -987,107 +1039,129 @@ function handleHodDeptSelectionLimit(cb) {
 window.handleHodDeptSelectionLimit = handleHodDeptSelectionLimit;
 
 // 1. Admin adds an HOD with Gmail & Password (1 or 2 Departments)
+let isSubmittingHod = false;
 async function handleAddHod(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const name = (document.getElementById('new-hod-name')?.value || '').trim();
-  const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-hod-departments"]:checked'));
-  const checkedDepts = checkedBoxes.map(cb => cb.value);
+  if (isSubmittingHod) return;
+  isSubmittingHod = true;
 
-  if (checkedDepts.length < 1) {
-    showToast('Please select at least 1 department for this HOD.', 'error');
-    return;
-  }
-  if (checkedDepts.length > 2) {
-    showToast('A single HOD can manage a maximum of 2 departments.', 'error');
-    return;
-  }
+  const submitBtn = document.querySelector('#form-add-hod button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 
-  const dept = checkedDepts.join(' & ');
-  const email = (document.getElementById('new-hod-email')?.value || '').trim().toLowerCase();
-  const password = (document.getElementById('new-hod-password')?.value || '').trim();
-  const rooms = (document.getElementById('new-hod-rooms')?.value || '').trim() || 'Assigned Block';
+  try {
+    const name = (document.getElementById('new-hod-name')?.value || '').trim();
+    const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-hod-departments"]:checked'));
+    const checkedDepts = checkedBoxes.map(cb => cb.value);
 
-  if (!name || !email || !password) {
-    showToast('Name, Gmail, and Password are required.', 'error');
-    return;
-  }
+    if (checkedDepts.length < 1) {
+      showToast('Please select at least 1 department for this HOD.', 'error');
+      return;
+    }
+    if (checkedDepts.length > 2) {
+      showToast('A single HOD can manage a maximum of 2 departments.', 'error');
+      return;
+    }
 
-  if (!validateEmail(email)) {
-    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
-    return;
-  }
+    const dept = checkedDepts.join(' & ');
+    const email = (document.getElementById('new-hod-email')?.value || '').trim().toLowerCase();
+    const password = (document.getElementById('new-hod-password')?.value || '').trim();
+    const rooms = (document.getElementById('new-hod-rooms')?.value || '').trim() || 'Assigned Block';
 
-  const passCheck = validatePassword(password);
-  if (!passCheck.valid) {
-    showToast(passCheck.message, 'error');
-    return;
-  }
+    if (!name || !email || !password) {
+      showToast('Name, Gmail, and Password are required.', 'error');
+      return;
+    }
 
-  // Check if user already exists
-  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
-    showToast('A user with this Gmail already exists.', 'error');
-    return;
-  }
+    if (!validateEmail(email)) {
+      showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+      return;
+    }
 
-  // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices
-  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
-    try {
-      await window.FirebaseAuth.registerWithEmail(email, password);
-      console.log('✅ HOD registered in Firebase Cloud Auth!');
-    } catch (err) {
-      console.warn('Firebase HOD cloud registration note:', err.code || err.message);
-      if (err.code === 'auth/email-already-in-use') {
-        showToast('This email is already registered in Firebase Authentication.', 'error');
-        return;
+    const passCheck = validatePassword(password);
+    if (!passCheck.valid) {
+      showToast(passCheck.message, 'error');
+      return;
+    }
+
+    // Check if user already exists
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email) ||
+        (appState.hodsList || []).some(h => (h.email || '').toLowerCase() === email)) {
+      showToast('A user with this Gmail already exists.', 'error');
+      return;
+    }
+
+    // Directly register HOD in Firebase Cloud Auth so account is immediately accessible across all devices
+    if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+      try {
+        await window.FirebaseAuth.registerWithEmail(email, password);
+        console.log('✅ HOD registered in Firebase Cloud Auth!');
+      } catch (err) {
+        console.warn('Firebase HOD cloud registration note:', err.code || err.message);
+        if (err.code === 'auth/email-already-in-use') {
+          showToast('This email is already registered in Firebase Authentication.', 'error');
+          return;
+        }
       }
     }
-  }
 
-  // Add HOD account to users WITHOUT plaintext password
-  appState.users = appState.users || [];
-  appState.users.push({
-    id: 'usr-hod-' + Date.now(),
-    name,
-    email,
-    role: 'hod',
-    dept,
-    departments: checkedDepts,
-    created_at: new Date().toISOString()
-  });
+    // Secondary duplicate check after await in case of concurrent execution
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email) ||
+        (appState.hodsList || []).some(h => (h.email || '').toLowerCase() === email)) {
+      showToast('A user with this Gmail already exists.', 'error');
+      return;
+    }
 
-  // Add to HOD list WITHOUT password
-  appState.hodsList = appState.hodsList || [];
-  appState.hodsList.push({
-    id: Date.now(),
-    name,
-    email,
-    dept,
-    departments: checkedDepts,
-    roomsManaged: rooms,
-    assignedFaculty: 10,
-    status: 'Active'
-  });
-
-  saveState(true);
-  renderAdminTables();
-  renderQuickLoginButtons();
-  closeModal('modal-add-hod');
-  showToast(`HOD account for ${name} (${dept}) created successfully!`, 'success');
-  const addHodForm = document.getElementById('form-add-hod');
-  if (addHodForm) {
-    addHodForm.reset();
-    handleHodDeptSelectionLimit(null);
-  }
-
-  // Persist to FastAPI Backend
-  if (window.ApiClient) {
-    ApiClient.registerUser({
+    // Add HOD account to users WITHOUT plaintext password
+    appState.users = appState.users || [];
+    appState.users.push({
+      id: 'usr-hod-' + Date.now(),
       name,
       email,
       role: 'hod',
-      department: dept
-    }).then(() => console.log('✅ HOD account registered on backend'))
-      .catch(err => console.warn('Backend HOD registration note:', err.message));
+      dept,
+      departments: checkedDepts,
+      created_at: new Date().toISOString()
+    });
+    appState.users = deduplicateUsersByEmail(appState.users);
+
+    // Add to HOD list WITHOUT password
+    appState.hodsList = appState.hodsList || [];
+    appState.hodsList.push({
+      id: Date.now(),
+      name,
+      email,
+      dept,
+      departments: checkedDepts,
+      roomsManaged: rooms,
+      assignedFaculty: 10,
+      status: 'Active'
+    });
+    appState.hodsList = deduplicateListByEmail(appState.hodsList);
+
+    saveState(true);
+    renderAdminTables();
+    renderQuickLoginButtons();
+    closeModal('modal-add-hod');
+    showToast(`HOD account for ${name} (${dept}) created successfully!`, 'success');
+    const addHodForm = document.getElementById('form-add-hod');
+    if (addHodForm) {
+      addHodForm.reset();
+      handleHodDeptSelectionLimit(null);
+    }
+
+    // Persist to FastAPI Backend
+    if (window.ApiClient) {
+      ApiClient.registerUser({
+        name,
+        email,
+        role: 'hod',
+        department: dept
+      }).then(() => console.log('✅ HOD account registered on backend'))
+        .catch(err => console.warn('Backend HOD registration note:', err.message));
+    }
+  } finally {
+    isSubmittingHod = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
@@ -1100,103 +1174,125 @@ function handleTeacherDeptSelection(cb) {
 window.handleTeacherDeptSelection = handleTeacherDeptSelection;
 
 // 2. HOD adds a Teacher with Gmail & Password (Multi-Department Support)
+let isSubmittingTeacher = false;
 async function handleHodAddTeacher(e) {
   if (e && e.preventDefault) e.preventDefault();
-  const name = (document.getElementById('hod-teacher-name')?.value || '').trim();
-  const email = (document.getElementById('hod-teacher-email')?.value || '').trim().toLowerCase();
-  const subject = (document.getElementById('hod-teacher-subject')?.value || '').trim();
-  const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-teacher-departments"]:checked'));
-  const checkedDepts = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
-  const dept = checkedDepts.length > 0 ? checkedDepts.join(' & ') : 'Information Technology';
-  const password = (document.getElementById('hod-teacher-password')?.value || '').trim();
-  const workload = (document.getElementById('hod-teacher-workload')?.value || '').trim() || '16 hrs/wk';
+  if (isSubmittingTeacher) return;
+  isSubmittingTeacher = true;
 
-  if (!name || !email || !password || !subject) {
-    showToast('Name, Subject, Gmail, and Password are required.', 'error');
-    return;
-  }
+  const submitBtn = document.querySelector('#form-hod-add-teacher button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 
-  if (checkedDepts.length === 0) {
-    showToast('Please select at least 1 department for this teacher.', 'error');
-    return;
-  }
+  try {
+    const name = (document.getElementById('hod-teacher-name')?.value || '').trim();
+    const email = (document.getElementById('hod-teacher-email')?.value || '').trim().toLowerCase();
+    const subject = (document.getElementById('hod-teacher-subject')?.value || '').trim();
+    const checkedBoxes = Array.from(document.querySelectorAll('input[name="new-teacher-departments"]:checked'));
+    const checkedDepts = checkedBoxes.map(cb => cb.value.trim()).filter(Boolean);
+    const dept = checkedDepts.length > 0 ? checkedDepts.join(' & ') : 'Information Technology';
+    const password = (document.getElementById('hod-teacher-password')?.value || '').trim();
+    const workload = (document.getElementById('hod-teacher-workload')?.value || '').trim() || '16 hrs/wk';
 
-  if (!validateEmail(email)) {
-    showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
-    return;
-  }
+    if (!name || !email || !password || !subject) {
+      showToast('Name, Subject, Gmail, and Password are required.', 'error');
+      return;
+    }
 
-  const passCheck = validatePassword(password);
-  if (!passCheck.valid) {
-    showToast(passCheck.message, 'error');
-    return;
-  }
+    if (checkedDepts.length === 0) {
+      showToast('Please select at least 1 department for this teacher.', 'error');
+      return;
+    }
 
-  if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email)) {
-    showToast('A user with this Gmail already exists.', 'error');
-    return;
-  }
+    if (!validateEmail(email)) {
+      showToast('Please enter a valid RFC 5322 formatted email address.', 'error');
+      return;
+    }
 
-  // Directly register Teacher in Firebase Cloud Auth so account is immediately accessible across all devices
-  if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
-    try {
-      await window.FirebaseAuth.registerWithEmail(email, password);
-      console.log('✅ Teacher registered in Firebase Cloud Auth!');
-    } catch (err) {
-      console.warn('Firebase Teacher cloud registration note:', err.code || err.message);
-      if (err.code === 'auth/email-already-in-use') {
-        showToast('This email is already registered in Firebase Authentication.', 'error');
-        return;
+    const passCheck = validatePassword(password);
+    if (!passCheck.valid) {
+      showToast(passCheck.message, 'error');
+      return;
+    }
+
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email) ||
+        (appState.teachersList || []).some(t => (t.email || '').toLowerCase() === email)) {
+      showToast('A user with this Gmail already exists.', 'error');
+      return;
+    }
+
+    // Directly register Teacher in Firebase Cloud Auth so account is immediately accessible across all devices
+    if (window.FirebaseAuth && typeof window.FirebaseAuth.registerWithEmail === 'function') {
+      try {
+        await window.FirebaseAuth.registerWithEmail(email, password);
+        console.log('✅ Teacher registered in Firebase Cloud Auth!');
+      } catch (err) {
+        console.warn('Firebase Teacher cloud registration note:', err.code || err.message);
+        if (err.code === 'auth/email-already-in-use') {
+          showToast('This email is already registered in Firebase Authentication.', 'error');
+          return;
+        }
       }
     }
-  }
 
-  // Add Teacher account to users WITHOUT plaintext password
-  appState.users = appState.users || [];
-  appState.users.push({
-    id: 'usr-teacher-' + Date.now(),
-    name,
-    email,
-    role: 'teacher',
-    dept,
-    departments: checkedDepts,
-    subject,
-    created_at: new Date().toISOString()
-  });
+    // Secondary duplicate check after await in case of concurrent execution
+    if ((appState.users || []).some(u => (u.email || '').toLowerCase() === email) ||
+        (appState.teachersList || []).some(t => (t.email || '').toLowerCase() === email)) {
+      showToast('A user with this Gmail already exists.', 'error');
+      return;
+    }
 
-  // Add to teachers list WITHOUT password
-  appState.teachersList = appState.teachersList || [];
-  appState.teachersList.push({
-    id: Date.now(),
-    name,
-    email,
-    subject,
-    dept,
-    departments: checkedDepts,
-    workload,
-    status: 'Available'
-  });
+    // Add Teacher account to users WITHOUT plaintext password
+    appState.users = appState.users || [];
+    appState.users.push({
+      id: 'usr-teacher-' + Date.now(),
+      name,
+      email,
+      role: 'teacher',
+      dept,
+      departments: checkedDepts,
+      subject,
+      created_at: new Date().toISOString()
+    });
+    appState.users = deduplicateUsersByEmail(appState.users);
 
-  saveState(true);
-  renderAdminTables();
-  renderHodTeachers();
-  renderQuickLoginButtons();
-  closeModal('modal-hod-add-teacher');
-  showToast(`Teacher account for ${name} created successfully!`, 'success');
-  const addTeacherForm = document.getElementById('form-hod-add-teacher');
-  if (addTeacherForm) addTeacherForm.reset();
-
-  // Persist to FastAPI Backend
-  if (window.ApiClient) {
-    ApiClient.createTeacher({
+    // Add to teachers list WITHOUT password
+    appState.teachersList = appState.teachersList || [];
+    appState.teachersList.push({
+      id: Date.now(),
       name,
       email,
       subject,
-      department: dept,
+      dept,
+      departments: checkedDepts,
       workload,
       status: 'Available'
-    }).then(() => console.log('✅ Teacher account registered on backend'))
-      .catch(err => console.warn('Backend Teacher creation note:', err.message));
+    });
+    appState.teachersList = deduplicateListByEmail(appState.teachersList);
+
+    saveState(true);
+    renderAdminTables();
+    renderHodTeachers();
+    renderQuickLoginButtons();
+    closeModal('modal-hod-add-teacher');
+    showToast(`Teacher account for ${name} created successfully!`, 'success');
+    const addTeacherForm = document.getElementById('form-hod-add-teacher');
+    if (addTeacherForm) addTeacherForm.reset();
+
+    // Persist to FastAPI Backend
+    if (window.ApiClient) {
+      ApiClient.createTeacher({
+        name,
+        email,
+        subject,
+        department: dept,
+        workload,
+        status: 'Available'
+      }).then(() => console.log('✅ Teacher account registered on backend'))
+        .catch(err => console.warn('Backend Teacher creation note:', err.message));
+    }
+  } finally {
+    isSubmittingTeacher = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
@@ -3599,7 +3695,7 @@ function renderAdminTables() {
   const hodTable = document.getElementById('admin-hods-tbody');
   if (hodTable) {
     hodTable.innerHTML = '';
-    const hods = appState.hodsList || [];
+    const hods = deduplicateListByEmail(appState.hodsList || []);
     if (hods.length === 0) {
       hodTable.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 text-xs font-medium">No HOD accounts registered yet. Click "+ Add HOD" to onboard department leadership.</td></tr>';
     } else {
@@ -3638,7 +3734,7 @@ function renderAdminTables() {
   const tTable = document.getElementById('admin-teachers-tbody');
   if (tTable) {
     tTable.innerHTML = '';
-    const teachers = appState.teachersList || [];
+    const teachers = deduplicateListByEmail(appState.teachersList || []);
     if (teachers.length === 0) {
       tTable.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs font-medium">No faculty teachers registered yet. Click "+ Add Teacher" to onboard teaching faculty.</td></tr>';
     } else {
@@ -3783,7 +3879,7 @@ function renderHodTeachers() {
   const container = document.getElementById('hod-teachers-cards-container');
   if (!container) return;
   container.innerHTML = '';
-  const teachers = appState.teachersList || [];
+  const teachers = deduplicateListByEmail(appState.teachersList || []);
 
   if (teachers.length === 0) {
     container.innerHTML = `
@@ -4181,11 +4277,19 @@ async function handleDeleteTeacher(teacherId, teacherName) {
   if (!confirm(`Are you sure you want to delete teacher ${teacherName}?`)) return;
 
   const target = (appState.teachersList || []).find(t => String(t.id) === String(teacherId) || t.name === teacherName);
-  appState.teachersList = (appState.teachersList || []).filter(t => String(t.id) !== String(teacherId) && t.name !== teacherName);
-  if (target && target.email) {
-    appState.users = (appState.users || []).filter(u => u.email.toLowerCase() !== target.email.toLowerCase());
+  const targetEmail = (target?.email || '').toLowerCase().trim();
+
+  appState.teachersList = (appState.teachersList || []).filter(t => {
+    const matchesId = String(t.id) === String(teacherId);
+    const matchesName = t.name === teacherName;
+    const matchesEmail = targetEmail && (t.email || '').toLowerCase().trim() === targetEmail;
+    return !matchesId && !matchesName && !matchesEmail;
+  });
+
+  if (targetEmail) {
+    appState.users = (appState.users || []).filter(u => (u.email || '').toLowerCase().trim() !== targetEmail);
   }
-  saveState();
+  saveState(true);
   renderAdminTables();
   renderHodTeachers();
   updateAllSelectDropdowns();
@@ -4205,9 +4309,17 @@ async function handleDeleteTeacher(teacherId, teacherName) {
 async function handleDeleteHod(hodId, hodEmail, hodName) {
   if (!confirm(`Are you sure you want to remove HOD ${hodName}?`)) return;
 
-  appState.hodsList = (appState.hodsList || []).filter(h => String(h.id) !== String(hodId) && h.email !== hodEmail);
-  appState.users = (appState.users || []).filter(u => u.email.toLowerCase() !== hodEmail.toLowerCase());
-  saveState();
+  const cleanEmail = (hodEmail || '').toLowerCase().trim();
+  appState.hodsList = (appState.hodsList || []).filter(h => {
+    const matchesId = String(h.id) === String(hodId);
+    const matchesEmail = cleanEmail && (h.email || '').toLowerCase().trim() === cleanEmail;
+    return !matchesId && !matchesEmail;
+  });
+
+  if (cleanEmail) {
+    appState.users = (appState.users || []).filter(u => (u.email || '').toLowerCase().trim() !== cleanEmail);
+  }
+  saveState(true);
   renderAdminTables();
   showToast(`HOD account for ${hodName} removed.`, 'info');
 
@@ -4290,7 +4402,7 @@ function updateAllSelectDropdowns() {
   if (ttTeacherSelect) {
     const currentVal = ttTeacherSelect.value;
     ttTeacherSelect.innerHTML = '<option value="">-- Select Teacher --</option>';
-    (appState.teachersList || []).forEach(t => {
+    deduplicateListByEmail(appState.teachersList || []).forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.name;
       opt.textContent = `${t.name} (${t.subject || t.dept || 'Faculty'})`;
@@ -4320,7 +4432,7 @@ function updateAllSelectDropdowns() {
   if (mapTeacher) {
     const cur = mapTeacher.value;
     mapTeacher.innerHTML = '<option value="">-- Select Teacher --</option>';
-    (appState.teachersList || []).forEach(t => {
+    deduplicateListByEmail(appState.teachersList || []).forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.name;
       opt.textContent = `${t.name} (${t.dept || 'Faculty'})`;
@@ -5472,29 +5584,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Event listener for login form
-  const loginForm = document.getElementById('form-login');
-  if (loginForm) {
-    loginForm.addEventListener('submit', handleLogin);
-  }
-
-  // Event listener for Add Admin form
-  const adminForm = document.getElementById('form-add-admin');
-  if (adminForm) {
-    adminForm.addEventListener('submit', handleAddAdmin);
-  }
-
-  // Event listener for Add HOD form
-  const hodForm = document.getElementById('form-add-hod');
-  if (hodForm) {
-    hodForm.addEventListener('submit', handleAddHod);
-  }
-
-  // Event listener for HOD Add Teacher form
-  const hodTeacherForm = document.getElementById('form-hod-add-teacher');
-  if (hodTeacherForm) {
-    hodTeacherForm.addEventListener('submit', handleHodAddTeacher);
-  }
+  // Note: form-login, form-add-admin, form-add-hod, and form-hod-add-teacher
+  // already have inline onsubmit="..." handlers in index.html. Redundant
+  // addEventListener calls have been removed to prevent duplicate event triggering.
 
   // Initial synchronization with FastAPI backend if user is already logged in
   if (appState.currentUser) {
@@ -5538,39 +5630,46 @@ function applyCloudState(cloudState) {
 
   // Merge users safely
   if (Array.isArray(cloudState.users)) {
-    const existingEmails = new Set(appState.users.map(u => (u.email || '').toLowerCase()));
+    const existingEmails = new Set(appState.users.map(u => (u.email || '').toLowerCase().trim()));
     cloudState.users.forEach(u => {
-      if (!existingEmails.has((u.email || '').toLowerCase())) {
+      const email = (u.email || '').toLowerCase().trim();
+      if (email && !existingEmails.has(email)) {
         appState.users.push(u);
-      } else {
-        const idx = appState.users.findIndex(x => (x.email || '').toLowerCase() === (u.email || '').toLowerCase());
+        existingEmails.add(email);
+      } else if (email) {
+        const idx = appState.users.findIndex(x => (x.email || '').toLowerCase().trim() === email);
         if (idx !== -1) appState.users[idx] = { ...appState.users[idx], ...u };
       }
     });
+    appState.users = deduplicateUsersByEmail(appState.users);
   }
 
   // Merge HODs list
   if (Array.isArray(cloudState.hodsList)) {
     cloudState.hodsList.forEach(h => {
-      const idx = appState.hodsList.findIndex(x => String(x.id) === String(h.id) || (x.email || '').toLowerCase() === (h.email || '').toLowerCase());
+      const email = (h.email || '').toLowerCase().trim();
+      const idx = appState.hodsList.findIndex(x => (email && (x.email || '').toLowerCase().trim() === email) || String(x.id) === String(h.id));
       if (idx !== -1) {
         appState.hodsList[idx] = { ...appState.hodsList[idx], ...h };
       } else {
         appState.hodsList.push(h);
       }
     });
+    appState.hodsList = deduplicateListByEmail(appState.hodsList);
   }
 
   // Merge Teachers list
   if (Array.isArray(cloudState.teachersList)) {
     cloudState.teachersList.forEach(t => {
-      const idx = appState.teachersList.findIndex(x => String(x.id) === String(t.id) || (x.email || '').toLowerCase() === (t.email || '').toLowerCase());
+      const email = (t.email || '').toLowerCase().trim();
+      const idx = appState.teachersList.findIndex(x => (email && (x.email || '').toLowerCase().trim() === email) || String(x.id) === String(t.id));
       if (idx !== -1) {
         appState.teachersList[idx] = { ...appState.teachersList[idx], ...t };
       } else {
         appState.teachersList.push(t);
       }
     });
+    appState.teachersList = deduplicateListByEmail(appState.teachersList);
   }
 
   // Synchronize dynamic campus assets directly from Cloud Firestore
