@@ -23,15 +23,18 @@ class Settings(BaseSettings):
     DEFAULT_LONGITUDE: float = 77.5946
     DEFAULT_CHECKIN_RADIUS_METERS: float = 60.0
 
+    COLLEGE_TIMEZONE: str = "Asia/Kolkata"
+
     @property
     def cors_origins_list(self) -> List[str]:
+        configured = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
         if self.ENVIRONMENT.lower() == "development" or self.DEV_MODE:
             # Allow localhost in local development environment
-            dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500"]
-            configured = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+            dev_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:8000", "http://127.0.0.1:8000"]
             return list(set(dev_origins + configured))
-        # Strictly enforce production domain
-        return ["https://mypcdod-lgtm.github.io"]
+        # In production, authorize configured domains plus primary GitHub Pages domain
+        prod_defaults = ["https://mypcdod-lgtm.github.io"]
+        return list(set(prod_defaults + configured))
 
     model_config = SettingsConfigDict(
         env_file=[".env", "backend/.env", "../backend/.env"],

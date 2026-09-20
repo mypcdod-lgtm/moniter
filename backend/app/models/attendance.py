@@ -27,6 +27,9 @@ class DutyReportRequest(BaseModel):
     teacher_email: str
     department: Optional[str] = "Information Technology"
     status: str = "ON_DUTY"  # ON_DUTY or OFF_DUTY
+    is_late_comer: Optional[bool] = None
+    first_period_missed: Optional[bool] = None
+    reported_at: Optional[str] = None
     date: Optional[str] = None
     timestamp: Optional[float] = None
 

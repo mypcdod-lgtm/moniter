@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import datetime
+import zoneinfo
 from httpx import AsyncClient, ASGITransport
 import sys
 import os
@@ -125,7 +126,7 @@ async def test_duty_report_and_timeliness():
             "department": "Information Technology",
             "status": "ON_DUTY"
         }
-        now_check = datetime.datetime.now()
+        now_check = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
         cur_m = now_check.hour * 60 + now_check.minute
         res = await ac.post("/api/attendance/duty-report", json=duty_payload, headers=headers_teacher)
         if cur_m >= 720:
@@ -157,7 +158,7 @@ async def test_duty_report_and_timeliness():
         assert any(r["teacher_email"] == "arun@college.edu" for r in reports)
 
         # Check in with 5-minute grace period (start min: current time)
-        now_dt = datetime.datetime.now()
+        now_dt = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
         cur_mins = now_dt.hour * 60 + now_dt.minute
         checkin_payload = {
             "class_name": "IT-A",

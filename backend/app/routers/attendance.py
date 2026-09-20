@@ -12,6 +12,9 @@ from app.core.websocket_manager import ws_manager
 from app.core.config import settings
 import datetime
 import uuid
+import zoneinfo
+
+COLLEGE_TZ = zoneinfo.ZoneInfo(settings.COLLEGE_TIMEZONE)
 
 router = APIRouter(prefix="/attendance", tags=["Attendance & Live Sessions"])
 
@@ -98,11 +101,11 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
                     message=f"Impossible velocity detected ({speed_kmh:.1f} km/h across {dist_m:.1f}m in {time_diff_sec:.0f}s). Location teleportation prevented."
                 )
 
-    # 1. Lookup classroom GPS coordinates
+    # 1. Lookup classroom GPS coordinates safely
     room = await db["rooms"].find_one({"room_code": payload.room_code.upper()})
-    room_lat = room["latitude"] if room else settings.DEFAULT_LATITUDE
-    room_lon = room["longitude"] if room else settings.DEFAULT_LONGITUDE
-    max_radius = room.get("geo_radius_meters", settings.DEFAULT_CHECKIN_RADIUS_METERS) if room else settings.DEFAULT_CHECKIN_RADIUS_METERS
+    room_lat = (room.get("latitude") if room else None) or settings.DEFAULT_LATITUDE
+    room_lon = (room.get("longitude") if room else None) or settings.DEFAULT_LONGITUDE
+    max_radius = (room.get("geo_radius_meters") if room else None) or settings.DEFAULT_CHECKIN_RADIUS_METERS
 
     # 2. Verify GPS Location via FREE mathematical Haversine formula
     loc_check = verify_teacher_location(
@@ -123,8 +126,8 @@ async def teacher_check_in(payload: CheckInRequest, db = Depends(get_db), curren
             message=f"Location verification failed: You are {loc_check['distance_meters']}m away from {payload.room_code}. Must be within {max_radius}m."
         )
 
-    # 3. Calculate 5-minute grace period timeliness
-    now_local = datetime.datetime.now()
+    # 3. Calculate 5-minute grace period timeliness in College Timezone (IST)
+    now_local = datetime.datetime.now(COLLEGE_TZ)
     cur_mins = now_local.hour * 60 + now_local.minute
     timeliness_status = "ON_TIME"
     minutes_late = 0
@@ -300,10 +303,10 @@ async def delete_week_topics(
 
 @router.post("/duty-report", response_model=DutyReportResponse)
 async def report_on_duty(payload: DutyReportRequest, db = Depends(get_db), current_user = Depends(get_current_user)):
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(COLLEGE_TZ)
     cur_mins = now.hour * 60 + now.minute
     date_str = payload.date or now.strftime("%Y-%m-%d")
-    reported_at = now.strftime("%I:%M %p")
+    reported_at = payload.reported_at or now.strftime("%I:%M %p")
 
     # Duty reporting rules:
     # Operating college start: 09:00 AM (540 mins)
@@ -316,8 +319,8 @@ async def report_on_duty(payload: DutyReportRequest, db = Depends(get_db), curre
             detail="Duty reporting is closed in the afternoon (after 12:00 PM). Unreported classes remain marked as VACANT."
         )
 
-    is_late_comer = False
-    first_period_missed = False
+    is_late_comer = payload.is_late_comer if payload.is_late_comer is not None else False
+    first_period_missed = payload.first_period_missed if payload.first_period_missed is not None else False
     if payload.status == "ON_DUTY" and cur_mins > 540:
         is_late_comer = True
         if cur_mins > 590:
