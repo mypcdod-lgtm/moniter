@@ -2405,6 +2405,39 @@ async function handleTeacherDutyToggle(isChecked) {
 }
 window.handleTeacherDutyToggle = handleTeacherDutyToggle;
 
+// Teacher Daily On-Duty Button Click Handler
+async function handleTeacherDutyButtonClick() {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const localToday = now.toLocaleDateString('en-CA');
+  const teacherEmail = (appState.currentUser?.email || 'faculty@college.edu').toLowerCase();
+
+  const dutyReportsToday = (appState.teacherDutyReports && appState.teacherDutyReports[localToday]) || {};
+  const currentTeacherName = (appState.currentUser?.name || '').toLowerCase();
+  const dutyReport = dutyReportsToday[teacherEmail] || Object.values(dutyReportsToday).find(r =>
+    (r.teacher_name || '').toLowerCase() === currentTeacherName ||
+    (teacherEmail && (r.teacher_email || '').toLowerCase() === teacherEmail)
+  );
+
+  const isCurrentlyOn = Boolean(dutyReport && dutyReport.status === 'ON_DUTY');
+
+  // If trying to turn ON in the afternoon (after 12:00 PM / 720 mins)
+  if (!isCurrentlyOn && currentMinutes >= 720) {
+    showToast('⚠️ Duty reporting is closed in the afternoon (after 12:00 PM). Classes remain marked as VACANT.', 'warning');
+    return;
+  }
+
+  // If already ON and in the afternoon, cannot cancel
+  if (isCurrentlyOn && currentMinutes >= 720) {
+    showToast('🔒 Duty status is locked for the afternoon.', 'info');
+    return;
+  }
+
+  const targetState = !isCurrentlyOn;
+  await handleTeacherDutyToggle(targetState);
+}
+window.handleTeacherDutyButtonClick = handleTeacherDutyButtonClick;
+
 async function handleTeacherCheckIn(classObj) {
   const isCheckingIn = !appState.teacherCheckedIn;
   const targetClass = classObj || currentActiveTeacherClass;
@@ -2550,6 +2583,35 @@ function renderTeacherDashboard() {
     dutyToggle.checked = Boolean(isDutyOn);
     // Afternoon cutoff: lock reporting toggle in the afternoon (after 12:00 PM)
     dutyToggle.disabled = isAfternoon;
+  }
+
+  // Update prominent Teacher On-Duty Button
+  const dutyBtn = document.getElementById('teacher-duty-action-btn');
+  const dutyBtnIcon = document.getElementById('teacher-duty-btn-icon');
+  const dutyBtnText = document.getElementById('teacher-duty-btn-text');
+
+  if (dutyBtn) {
+    if (isAfternoon && !isDutyOn) {
+      dutyBtn.disabled = true;
+      dutyBtn.className = 'w-full sm:w-auto px-5 py-2.5 bg-slate-100 text-slate-400 border border-slate-200 font-black text-xs sm:text-sm rounded-2xl cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap';
+      if (dutyBtnIcon) dutyBtnIcon.textContent = '🚫';
+      if (dutyBtnText) dutyBtnText.textContent = 'Reporting Closed (Afternoon)';
+    } else if (isAfternoon && isDutyOn) {
+      dutyBtn.disabled = true;
+      dutyBtn.className = 'w-full sm:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-black text-xs sm:text-sm rounded-2xl cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap';
+      if (dutyBtnIcon) dutyBtnIcon.textContent = '🔒';
+      if (dutyBtnText) dutyBtnText.textContent = dutyReport?.is_late_comer ? 'On Duty (Late - Locked)' : 'On Duty (Locked)';
+    } else if (!isDutyOn) {
+      dutyBtn.disabled = false;
+      dutyBtn.className = 'w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap';
+      if (dutyBtnIcon) dutyBtnIcon.textContent = '🛡️';
+      if (dutyBtnText) dutyBtnText.textContent = 'Report On Duty Today';
+    } else {
+      dutyBtn.disabled = false;
+      dutyBtn.className = 'w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-emerald-500/25 transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap';
+      if (dutyBtnIcon) dutyBtnIcon.textContent = '✓';
+      dutyBtnText.textContent = dutyReport?.is_late_comer ? 'On Duty (Late Comer)' : 'On Duty (Reported)';
+    }
   }
 
   if (dutyBadge) {

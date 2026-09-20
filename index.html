@@ -1765,7 +1765,7 @@
 
                 <!-- TEACHER DAILY ON-DUTY MASTER SWITCH CARD -->
                 <div id="teacher-duty-switch-card" class="bg-white rounded-3xl border-2 border-indigo-100 p-5 shadow-xs transition hover:border-indigo-200">
-                  <div class="flex items-center justify-between gap-4">
+                  <div class="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
                     <div class="flex items-center gap-3 min-w-0">
                       <div id="teacher-duty-icon-box" class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xl shrink-0 border border-indigo-100">
                         🛡️
@@ -1778,14 +1778,18 @@
                           </span>
                         </div>
                         <p id="teacher-duty-desc" class="text-xs text-slate-500 mt-0.5">
-                          Turn ON before your scheduled period starts. If not reported, classes show as <strong class="text-rose-600 font-semibold">VACANT</strong> to HOD for substitute assignment.
+                          Tap to confirm your presence before your scheduled period starts. If not reported, classes show as <strong class="text-rose-600 font-semibold">VACANT</strong> to HOD for substitute assignment.
                         </p>
                       </div>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                      <input type="checkbox" id="teacher-duty-toggle" class="sr-only peer" onchange="handleTeacherDutyToggle(this.checked)">
-                      <div class="w-12 h-6.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2.5px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5.5 after:w-5.5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
+                    <!-- Direct Action Button -->
+                    <div class="shrink-0 w-full sm:w-auto">
+                      <button type="button" id="teacher-duty-action-btn" onclick="handleTeacherDutyButtonClick()" class="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
+                        <span id="teacher-duty-btn-icon">🛡️</span>
+                        <span id="teacher-duty-btn-text">Report On Duty Today</span>
+                      </button>
+                      <input type="checkbox" id="teacher-duty-toggle" class="hidden" onchange="handleTeacherDutyToggle(this.checked)">
+                    </div>
                   </div>
                   <div id="teacher-duty-timestamp-box" class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 hidden">
                     <span id="teacher-duty-time-text" class="font-mono">Logged at: --</span>
