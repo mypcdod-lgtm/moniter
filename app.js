@@ -692,6 +692,11 @@ async function handleGoogleLogin() {
 
 function handleLogout() {
   appState.currentUser = null;
+  appState.teacherCheckedIn = false;
+  appState.teacherCheckInTimeliness = null;
+  if (typeof currentActiveTeacherClass !== 'undefined') {
+    currentActiveTeacherClass = null;
+  }
   saveState();
   updateAuthUI();
   showToast('You have signed out successfully.', 'info');
@@ -2420,16 +2425,22 @@ function closeSubstituteModal() {
 
 function confirmSubstituteAssignment(teacherName) {
   if (!activeVacantClassId) return;
-  const row = appState.liveMonitoring.find(c => c.id === activeVacantClassId);
+  const row = (appState.liveMonitoring || []).find(c => c.id === activeVacantClassId);
+  if (!row) {
+    showToast('Session not found. Please refresh the dashboard.', 'error');
+    closeSubstituteModal();
+    return;
+  }
   if (row) {
     row.status = 'SUBSTITUTE';
     row.substituteTeacher = teacherName;
+    row.updatedAt = Date.now();
 
     // Adjust counters
-    if (appState.hodStats.vacant > 0) appState.hodStats.vacant -= 1;
-    appState.hodStats.substitute += 1;
+    if (appState.hodStats && appState.hodStats.vacant > 0) appState.hodStats.vacant -= 1;
+    if (appState.hodStats) appState.hodStats.substitute = (appState.hodStats.substitute || 0) + 1;
 
-    saveState();
+    saveState(true); // Immediate Firebase sync so teacher sees substitute assignment instantly
     closeSubstituteModal();
     renderHodDashboard();
     showToast(`Assigned ${teacherName} as substitute for ${row.class} (${row.subject})!`, 'success');
@@ -2596,8 +2607,8 @@ async function handleTeacherDutyToggle(isChecked) {
   appState.teacherDutyReports = appState.teacherDutyReports || {};
   appState.teacherDutyReports[localToday] = appState.teacherDutyReports[localToday] || {};
 
-  // Operating start is 9:00 AM (540 min). If checked after 9:00 AM, flagged as late comer
-  const isLateComer = isChecked && (currentMinutes > 540);
+  // Operating start is 9:00 AM (540 min). 5-minute grace period applies (545 min = 09:05 AM).
+  const isLateComer = isChecked && (currentMinutes > 545);
   const firstPeriodMissed = isChecked && (currentMinutes > 590);
 
   const reportObj = {
@@ -3391,7 +3402,7 @@ function renderTeacherTopicPromptCard(targetClassObj) {
     const matchPeriod = String(t.period) === String(targetPeriod);
     const matchTeacher = !t.teacherEmail || (t.teacherEmail && t.teacherEmail.toLowerCase() === currentTeacherEmail) ||
                          (t.teacherName && t.teacherName.toLowerCase().includes(currentTeacherName));
-    return matchDate && matchClass && matchPeriod;
+    return matchDate && matchClass && matchPeriod && matchTeacher;
   });
 
   if (existingTopic && existingTopic.topicTitle) {
@@ -3570,7 +3581,7 @@ function renderHodTopicTracker() {
   // 2. Populate Class Filter Dropdown
   if (classFilter) {
     const selectedClass = classFilter.value || 'ALL';
-    const classSet = new Set(['CO4', 'IT-A', 'IT-B']);
+    const classSet = new Set();
     (appState.classroomsList || []).forEach(r => { if (r.name) classSet.add(r.name); if (r.code) classSet.add(r.code); });
     (appState.studentBatches || []).forEach(b => { if (b.name) classSet.add(b.name); if (b.code) classSet.add(b.code); });
     topics.forEach(t => { if (t.className) classSet.add(t.className); });
@@ -4021,8 +4032,12 @@ function handleDeleteTimetableVersion(versionStr) {
     return;
   }
 
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (!appState._deletedEntityIds.includes(versionStr)) {
+    appState._deletedEntityIds.push(versionStr);
+  }
   appState.timetableVersions = appState.timetableVersions.filter(v => v.version !== versionStr);
-  saveState();
+  saveState(true);
   renderAdminTables();
   showToast(`Draft timetable ${versionStr} deleted.`, 'info');
 }
@@ -4038,7 +4053,7 @@ function handleApplyDraftVersion(versionStr) {
   target.status = 'ACTIVE';
   target.appliedAt = new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  saveState();
+  saveState(true);
   renderAdminTables();
   renderAdminTimetable();
   showToast(`Timetable version ${versionStr} applied campus-wide!`, 'success');
@@ -4193,11 +4208,18 @@ function renderHodLeaves() {
   }
 
   container.innerHTML = '';
-  leaves.forEach(l => {
+  // Sort: Pending leaves first, then newer dates first
+  const sortedLeaves = [...leaves].sort((a, b) => {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (a.status !== 'pending' && b.status === 'pending') return 1;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+
+  sortedLeaves.forEach(l => {
     const isPending = l.status === 'pending';
     const isApproved = l.status === 'approved';
     const card = document.createElement('div');
-    card.className = `p-4 rounded-2xl border ${isPending ? 'border-amber-200 bg-amber-50/40' : (isApproved ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-slate-50')} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition`;
+    card.className = `p-4 rounded-2xl border ${isPending ? 'border-amber-200 bg-amber-50/40 shadow-xs' : (isApproved ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-slate-50')} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition mb-3`;
     
     let statusPill = isPending 
       ? '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">PENDING REVIEW</span>'

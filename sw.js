@@ -1,5 +1,5 @@
-// FOLIO Service Worker v30.0.0 (Live Monitoring Fix + Teacher Name Generalization + Immediate Cloud Sync)
-const CACHE_NAME = "folio-v30";
+// FOLIO Service Worker v31.0.0 (Full Project Audit: Substitute Sync, State Cleanup, Clean Filters & Role Hardening)
+const CACHE_NAME = "folio-v31";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
