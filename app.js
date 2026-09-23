@@ -422,45 +422,65 @@ async function handleLogin(e) {
     }
   }
 
-  // 2. Locate user profile in database
-  let user = (appState.users || []).find(u => 
-    (u.email && u.email.toLowerCase() === emailInput) || 
-    (u.altEmail && u.altEmail.toLowerCase() === emailInput)
-  );
+  // 2–4. Role Resolution via STRICT PRIORITY CHAIN:
+  //   Priority 1: hodsList (most authoritative — HOD was explicitly registered by admin)
+  //   Priority 2: teachersList (registered by HOD)
+  //   Priority 3: users array (general profile fallback — may have stale role data)
+  //
+  // A role confirmed from a higher-priority source CANNOT be overwritten by a lower-priority source.
 
-  // 3. Check HOD directory
-  // 3. Check HOD directory
-  if (appState.hodsList) {
-    const hodMatch = appState.hodsList.find(h => h.email && h.email.toLowerCase() === emailInput);
-    if (hodMatch) {
-      if (user) {
-        user.name = hodMatch.name || user.name;
-        user.role = 'hod';
-        user.dept = hodMatch.dept || user.dept || 'Information Technology';
-      } else {
-        user = {
-          id: 'usr-hod-' + (hodMatch.id || Date.now()),
-          name: hodMatch.name,
-          email: hodMatch.email,
-          role: 'hod',
-          dept: hodMatch.dept || 'Information Technology'
-        };
-        appState.users = appState.users || [];
-        appState.users.push(user);
-      }
-      saveState(true);
+  let resolvedRole = null;  // tracks confirmed role to prevent overwriting
+  let user = null;
+
+  // Priority 1: Check HOD directory
+  const hodMatch = (appState.hodsList || []).find(h => h.email && h.email.toLowerCase() === emailInput);
+  if (hodMatch) {
+    resolvedRole = 'hod';
+    // Also find/update the users[] entry so it stays consistent
+    const existingUserIdx = (appState.users || []).findIndex(u => (u.email || '').toLowerCase() === emailInput);
+    if (existingUserIdx !== -1) {
+      user = { ...appState.users[existingUserIdx] };
+      user.role = 'hod';
+      user.name = hodMatch.name || user.name;
+      user.dept = hodMatch.dept || user.dept || 'Information Technology';
+      if (hodMatch.departments) user.departments = hodMatch.departments;
+      appState.users[existingUserIdx] = user;
+    } else {
+      user = {
+        id: 'usr-hod-' + (hodMatch.id || Date.now()),
+        name: hodMatch.name,
+        email: hodMatch.email,
+        role: 'hod',
+        dept: hodMatch.dept || 'Information Technology',
+        departments: hodMatch.departments || []
+      };
+      appState.users = appState.users || [];
+      appState.users.push(user);
     }
+    saveState(true);
   }
 
-  // 4. Check Faculty Teacher directory
-  if (appState.teachersList) {
-    const teacherMatch = appState.teachersList.find(t => t.email && t.email.toLowerCase() === emailInput);
+  // Priority 2: Check Faculty Teacher directory (only if NOT already confirmed as HOD)
+  if (resolvedRole !== 'hod') {
+    const teacherMatch = (appState.teachersList || []).find(t => t.email && t.email.toLowerCase() === emailInput);
     if (teacherMatch) {
-      if (user) {
-        user.name = teacherMatch.name || user.name;
-        user.role = 'teacher';
-        user.dept = teacherMatch.dept || user.dept || 'Information Technology';
-        user.subject = teacherMatch.subject || user.subject || '';
+      resolvedRole = 'teacher';
+      const existingUserIdx = (appState.users || []).findIndex(u => (u.email || '').toLowerCase() === emailInput);
+      if (existingUserIdx !== -1) {
+        // Only downgrade role if not already admin (admin can stay admin even if in teachersList)
+        const existingRole = (appState.users[existingUserIdx].role || '').toLowerCase();
+        if (existingRole !== 'admin') {
+          user = { ...appState.users[existingUserIdx] };
+          user.role = 'teacher';
+          user.name = teacherMatch.name || user.name;
+          user.dept = teacherMatch.dept || user.dept || 'Information Technology';
+          user.subject = teacherMatch.subject || user.subject || '';
+          appState.users[existingUserIdx] = user;
+        } else {
+          // User is in teachers list but also registered as admin — honour admin role
+          resolvedRole = 'admin';
+          user = { ...appState.users[existingUserIdx] };
+        }
       } else {
         user = {
           id: 'usr-teacher-' + (teacherMatch.id || Date.now()),
@@ -477,24 +497,53 @@ async function handleLogin(e) {
     }
   }
 
+  // Priority 3: Fall back to users[] array (if not yet resolved)
+  if (!user) {
+    user = (appState.users || []).find(u =>
+      (u.email && u.email.toLowerCase() === emailInput) ||
+      (u.altEmail && u.altEmail.toLowerCase() === emailInput)
+    );
+    if (user) {
+      resolvedRole = user.role;
+    }
+  }
+
   // 5. Enforce Cloud Authentication
   if (!authSuccess) {
     showToast('Authentication failed. Invalid email or password.', 'error');
     return;
   }
 
-  // If user profile is not in local state, create minimal profile based on first-user logic
+  // If user profile is not in local state but Firebase auth succeeded:
+  // Only auto-create if this is the very first user ever (bootstrap admin scenario).
+  // Otherwise, block login — the Firebase account exists but hasn't been registered
+  // in the system yet (admin hasn't added them via HOD/Teacher form).
   if (!user) {
-    user = {
-      id: 'usr-fb-' + Date.now().toString(36),
-      name: emailInput.split('@')[0],
-      email: emailInput,
-      role: (appState.users && appState.users.length === 0) ? 'admin' : 'teacher',
-      dept: 'Information Technology'
-    };
-    appState.users = appState.users || [];
-    appState.users.push(user);
-    saveState(true);
+    const totalRegisteredUsers = (appState.users || []).length;
+    if (totalRegisteredUsers === 0) {
+      // Bootstrap: first ever login — auto-create as admin
+      user = {
+        id: 'usr-fb-' + Date.now().toString(36),
+        name: emailInput.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        email: emailInput,
+        role: 'admin',
+        dept: 'General Admin'
+      };
+      appState.users = appState.users || [];
+      appState.users.push(user);
+      saveState(true);
+      console.log('🔑 [Bootstrap] First admin account auto-created for:', emailInput);
+    } else {
+      // Firebase auth succeeded but this email is not registered in the system.
+      // This could be an old Firebase account whose profile was wiped from cloud state.
+      // Do NOT auto-assign a role — ask admin to re-register this user.
+      showToast(
+        '⚠️ Your account is not registered in this system. Please ask your Administrator to add your account via the Admin Panel.',
+        'error'
+      );
+      console.warn('[Login] Firebase auth OK but no profile in system for:', emailInput);
+      return;
+    }
   }
 
   // Authenticate user session & FREEZE to prevent console role tampering
@@ -543,33 +592,84 @@ async function handleGoogleLogin() {
     const res = await window.FirebaseAuth.loginWithGoogle();
     const gUser = res.user;
     const token = res.token;
-    console.log('Google login user:', gUser.email);
+    const gEmail = gUser.email.toLowerCase();
+    console.log('Google login user:', gEmail);
 
-    // Match existing user by Google email, or create session
-    let user = (appState.users || []).find(u => (u.email || '').toLowerCase() === gUser.email.toLowerCase());
-    if (!user) {
-      const isFirstUser = !appState.users || appState.users.length === 0;
-      user = {
-        id: 'usr-g-' + gUser.uid.substring(0, 8),
-        name: gUser.displayName || 'Google User',
-        email: gUser.email,
-        role: isFirstUser ? 'admin' : 'teacher',
-        dept: 'Information Technology'
-      };
-      appState.users = appState.users || [];
-      appState.users.push(user);
+    // Use same strict priority chain as email/password login
+    let user = null;
+    let resolvedRole = null;
+
+    // Priority 1: HOD directory
+    const hodMatch = (appState.hodsList || []).find(h => (h.email || '').toLowerCase() === gEmail);
+    if (hodMatch) {
+      resolvedRole = 'hod';
+      const idx = (appState.users || []).findIndex(u => (u.email || '').toLowerCase() === gEmail);
+      if (idx !== -1) {
+        user = { ...appState.users[idx], role: 'hod', name: hodMatch.name || appState.users[idx].name, dept: hodMatch.dept || appState.users[idx].dept };
+        if (hodMatch.departments) user.departments = hodMatch.departments;
+        appState.users[idx] = user;
+      } else {
+        user = { id: 'usr-g-hod-' + gUser.uid.substring(0, 8), name: hodMatch.name, email: gEmail, role: 'hod', dept: hodMatch.dept || 'Information Technology', departments: hodMatch.departments || [] };
+        appState.users = appState.users || [];
+        appState.users.push(user);
+      }
     }
 
-    appState.currentUser = {
+    // Priority 2: Teacher directory (only if not HOD)
+    if (!resolvedRole) {
+      const teacherMatch = (appState.teachersList || []).find(t => (t.email || '').toLowerCase() === gEmail);
+      if (teacherMatch) {
+        resolvedRole = 'teacher';
+        const idx = (appState.users || []).findIndex(u => (u.email || '').toLowerCase() === gEmail);
+        if (idx !== -1) {
+          const existingRole = (appState.users[idx].role || '').toLowerCase();
+          if (existingRole !== 'admin') {
+            user = { ...appState.users[idx], role: 'teacher', name: teacherMatch.name || appState.users[idx].name, dept: teacherMatch.dept || appState.users[idx].dept, subject: teacherMatch.subject || appState.users[idx].subject || '' };
+            appState.users[idx] = user;
+          } else {
+            resolvedRole = 'admin';
+            user = { ...appState.users[idx] };
+          }
+        } else {
+          user = { id: 'usr-g-' + gUser.uid.substring(0, 8), name: teacherMatch.name, email: gEmail, role: 'teacher', dept: teacherMatch.dept || 'Information Technology', subject: teacherMatch.subject || '' };
+          appState.users = appState.users || [];
+          appState.users.push(user);
+        }
+      }
+    }
+
+    // Priority 3: Existing users[] entry
+    if (!user) {
+      user = (appState.users || []).find(u => (u.email || '').toLowerCase() === gEmail);
+      if (user) resolvedRole = user.role;
+    }
+
+    // Bootstrap or block unknown account
+    if (!user) {
+      const totalRegisteredUsers = (appState.users || []).length;
+      if (totalRegisteredUsers === 0) {
+        user = { id: 'usr-g-' + gUser.uid.substring(0, 8), name: gUser.displayName || 'Google User', email: gEmail, role: 'admin', dept: 'General Admin' };
+        appState.users = appState.users || [];
+        appState.users.push(user);
+        resolvedRole = 'admin';
+      } else {
+        showToast('⚠️ Your Google account is not registered in this system. Ask your Admin to add your account.', 'error');
+        return;
+      }
+    }
+
+    saveState(true);
+
+    appState.currentUser = Object.freeze({
       id: user.id,
-      name: user.name,
+      name: user.name || gUser.displayName || 'Google User',
       email: user.email,
       role: user.role,
       dept: user.dept || 'Information Technology',
+      departments: user.departments || [],
       subject: user.subject || ''
-    };
+    });
     appState.activeRole = user.role;
-    saveState(true);
 
     if (window.ApiClient) {
       ApiClient.setAuthToken(token);
@@ -582,7 +682,7 @@ async function handleGoogleLogin() {
     updateAuthUI();
     setRole(user.role);
     const gDisplayRole = user.role === 'teacher' ? 'STAFF' : user.role.toUpperCase();
-    showToast(`Signed in with Google as ${user.name}! (${gDisplayRole})`, 'success');
+    showToast(`Signed in with Google as ${user.name || gUser.displayName}! (${gDisplayRole})`, 'success');
     syncWithBackend();
   } catch (err) {
     console.error('Google Sign-In Error:', err);
@@ -5751,6 +5851,7 @@ function applyCloudState(cloudState) {
 
   // Merge users safely
   if (Array.isArray(cloudState.users)) {
+    const currentUserEmail = (appState.currentUser?.email || '').toLowerCase().trim();
     const existingEmails = new Set(appState.users.map(u => (u.email || '').toLowerCase().trim()));
     cloudState.users.forEach(u => {
       const email = (u.email || '').toLowerCase().trim();
@@ -5759,7 +5860,15 @@ function applyCloudState(cloudState) {
         existingEmails.add(email);
       } else if (email) {
         const idx = appState.users.findIndex(x => (x.email || '').toLowerCase().trim() === email);
-        if (idx !== -1) appState.users[idx] = { ...appState.users[idx], ...u };
+        if (idx !== -1) {
+          // CRITICAL: Never let cloud overwrite the role of the currently logged-in user.
+          // The role was already resolved via the strict priority chain at login time.
+          const merged = { ...appState.users[idx], ...u };
+          if (currentUserEmail && email === currentUserEmail) {
+            merged.role = appState.users[idx].role; // Preserve local role — do NOT let cloud revert it
+          }
+          appState.users[idx] = merged;
+        }
       }
     });
     appState.users = deduplicateUsersByEmail(appState.users);
