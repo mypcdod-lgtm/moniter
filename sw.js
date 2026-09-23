@@ -1,5 +1,5 @@
-// FOLIO Service Worker v28.0.0 (Afternoon Cutoff, 9AM Late Comer Alert & Real-time Cross-Desk Sync)
-const CACHE_NAME = "folio-v28";
+// FOLIO Service Worker v30.0.0 (Live Monitoring Fix + Teacher Name Generalization + Immediate Cloud Sync)
+const CACHE_NAME = "folio-v30";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

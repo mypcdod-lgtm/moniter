@@ -117,6 +117,15 @@ window.FirebaseDb = {
         });
       }
 
+      // If user is logged in, ensure token is active for Firestore write
+      if (auth.currentUser && typeof auth.currentUser.getIdToken === 'function') {
+        try {
+          await auth.currentUser.getIdToken(false);
+        } catch (tokErr) {
+          console.warn("Firebase token check notice:", tokErr.message);
+        }
+      }
+
       await setDoc(doc(db, "campus_system", "state"), cleanState, { merge: true });
       console.log("☁️ State synced to Firebase Cloud Firestore securely (all passwords stripped)!");
       return true;

@@ -181,7 +181,7 @@ function saveState(immediateCloud = false) {
   if (window.FirebaseDb && typeof window.FirebaseDb.saveAppState === 'function') {
     if (immediateCloud) {
       clearTimeout(cloudSaveTimer);
-      window.FirebaseDb.saveAppState(appState);
+      return window.FirebaseDb.saveAppState(appState);
     } else {
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = setTimeout(() => {
@@ -708,10 +708,10 @@ async function syncWithBackend() {
       }));
     }
 
-    // 4. Sync Classrooms
+    // 4. Sync Classrooms (Merge safely to prevent wiping local rooms)
     const rooms = await ApiClient.getRooms(dept);
     if (rooms && rooms.length > 0) {
-      appState.classroomsList = rooms.map(r => ({
+      const backendRooms = rooms.map(r => ({
         id: r.id || r._id,
         room: r.room_code,
         type: r.type,
@@ -721,13 +721,23 @@ async function syncWithBackend() {
         longitude: r.longitude,
         radius: r.geo_radius_meters
       }));
+      appState.classroomsList = appState.classroomsList || [];
+      backendRooms.forEach(br => {
+        const idx = appState.classroomsList.findIndex(r => (r.room && br.room && r.room.toUpperCase() === br.room.toUpperCase()) || (r.id && r.id === br.id));
+        if (idx !== -1) {
+          appState.classroomsList[idx] = { ...appState.classroomsList[idx], ...br };
+        } else {
+          appState.classroomsList.push(br);
+        }
+      });
+      appState.rooms = appState.classroomsList;
       renderAdminRooms();
     }
 
-    // 4b. Sync Subjects
+    // 4b. Sync Subjects (Merge safely to prevent wiping local subjects)
     const subjects = await ApiClient.getSubjects(dept);
     if (subjects && subjects.length > 0) {
-      appState.subjectsList = subjects.map(s => ({
+      const backendSubjects = subjects.map(s => ({
         id: s.id || s._id,
         code: s.code,
         name: s.name,
@@ -735,20 +745,52 @@ async function syncWithBackend() {
         weeklyHours: s.weekly_hours,
         dept: s.department
       }));
+      appState.subjectsList = appState.subjectsList || [];
+      backendSubjects.forEach(bs => {
+        const idx = appState.subjectsList.findIndex(s => (s.code && bs.code && s.code.toUpperCase() === bs.code.toUpperCase()) || (s.id && s.id === bs.id));
+        if (idx !== -1) {
+          appState.subjectsList[idx] = { ...appState.subjectsList[idx], ...bs };
+        } else {
+          appState.subjectsList.push(bs);
+        }
+      });
       renderAdminSubjects();
     }
 
-    // 5. Sync Leave Requests
+    // 5. Sync Leave Requests (Merge safely to prevent overwriting local pending/approved leaves)
     const leaves = await ApiClient.getLeaves(dept);
-    if (leaves) {
-      appState.leavesList = leaves;
+    if (leaves && Array.isArray(leaves)) {
+      appState.leavesList = appState.leavesList || [];
+      const deletedSet = new Set(appState._deletedEntityIds || []);
+      leaves.forEach(bl => {
+        if (!bl || deletedSet.has(String(bl.id || bl._id || ''))) return;
+        const idx = appState.leavesList.findIndex(l => String(l.id || l._id || '') === String(bl.id || bl._id || ''));
+        if (idx !== -1) {
+          const localTime = appState.leavesList[idx].updatedAt || 0;
+          const backendTime = bl.updatedAt || 0;
+          if (backendTime >= localTime) {
+            appState.leavesList[idx] = { ...appState.leavesList[idx], ...bl };
+          }
+        } else {
+          appState.leavesList.push(bl);
+        }
+      });
       renderHodLeaves();
+      renderTeacherLeaves();
     }
 
-    // 6. Sync Campus Notifications
+    // 6. Sync Campus Notifications (Merge safely by id)
     const notifs = await ApiClient.getNotifications(dept);
-    if (notifs) {
-      appState.notificationsList = notifs;
+    if (notifs && Array.isArray(notifs)) {
+      appState.notificationsList = appState.notificationsList || [];
+      const existingNotifIds = new Set(appState.notificationsList.map(n => String(n.id || n._id || '')));
+      notifs.forEach(bn => {
+        const nid = String(bn.id || bn._id || '');
+        if (nid && !existingNotifIds.has(nid)) {
+          appState.notificationsList.unshift(bn);
+          existingNotifIds.add(nid);
+        }
+      });
       renderNotifications();
     }
 
@@ -2582,7 +2624,16 @@ async function handleTeacherCheckIn(classObj) {
       period: targetClass?.period || 1
     };
 
-    const arunClass = (appState.liveMonitoring || []).find(c => (c.teacher || '').toLowerCase().includes('arun') || c.class === targetBatch);
+    // Find the live monitoring entry for the currently logged-in teacher (not hardcoded 'arun')
+    const currentTeacherEmail = (appState.currentUser?.email || '').toLowerCase();
+    const currentTeacherName = (appState.currentUser?.name || '').toLowerCase();
+    const arunClass = (appState.liveMonitoring || []).find(c => {
+      const cTeacher = (c.teacher || '').toLowerCase();
+      const cEmail = (c.teacher_email || '').toLowerCase();
+      return c.class === targetBatch ||
+        (currentTeacherEmail && cEmail === currentTeacherEmail) ||
+        (currentTeacherName && (cTeacher.includes(currentTeacherName) || currentTeacherName.includes(cTeacher)));
+    });
     if (arunClass) {
       arunClass.status = 'ACTIVE';
       arunClass.exactStatus = timeliness === 'LATE' ? `LATE TO CLASS (${minutesLate}m late)` : 'IN ROOM (ON TIME)';
@@ -2996,7 +3047,7 @@ function renderTeacherDashboard() {
 
     const formatTeacherCell = (val) => {
       if (!val || val === '-') return '<span class="text-slate-300 font-mono">-</span>';
-      if (val.toLowerCase().includes(currentTeacherName) || val.toLowerCase().includes('arun')) {
+      if (val.toLowerCase().includes(currentTeacherName)) {
         return `<div class="p-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-950 leading-tight">${val}</div>`;
       }
       return '<span class="text-slate-400 text-[11px]">Free / Prep</span>';
@@ -3005,7 +3056,7 @@ function renderTeacherDashboard() {
     days.forEach(d => {
       const daySlots = (appState.masterTimetableSlots || []).filter(s => s.day === d);
       const getSlotForPeriod = (pKey) => {
-        const found = daySlots.find(s => (s[pKey] || '').toLowerCase().includes(currentTeacherName) || (s[pKey] || '').toLowerCase().includes('arun'));
+        const found = daySlots.find(s => (s[pKey] || '').toLowerCase().includes(currentTeacherName));
         return found ? `${found[pKey]} (${found.section})` : '-';
       };
 
@@ -3321,6 +3372,7 @@ async function saveTeacherTopic(targetClassObj) {
     teacherEmail: teacherEmail,
     department: dept,
     timestamp: Date.now(),
+    updatedAt: Date.now(),
     status: 'Logged'
   };
 
@@ -3330,7 +3382,11 @@ async function saveTeacherTopic(targetClassObj) {
     appState.weeklyTopics.unshift(topicDoc);
   }
 
-  saveState();
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== topicDoc.id && id !== topicDoc.weekKey);
+  }
+
+  saveState(true);
   renderTeacherTopicPromptCard(targetClass);
   renderHodTopicTracker();
   renderHodTodayTopicsSummary();
@@ -3580,10 +3636,15 @@ async function confirmDeleteTopicWeek() {
   if (!confirmed) return;
 
   const countBefore = (appState.weeklyTopics || []).length;
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (selectedWeek && !appState._deletedEntityIds.includes(selectedWeek)) {
+    appState._deletedEntityIds.push(selectedWeek);
+  }
+
   appState.weeklyTopics = (appState.weeklyTopics || []).filter(t => t.weekKey !== selectedWeek);
   const deletedCount = countBefore - appState.weeklyTopics.length;
 
-  saveState();
+  saveState(true);
   renderHodTopicTracker();
   renderHodTodayTopicsSummary();
 
@@ -3604,8 +3665,13 @@ function deleteSingleTopicRecord(topicId) {
   const confirmed = confirm('Remove this specific topic record?');
   if (!confirmed) return;
 
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (topicId && !appState._deletedEntityIds.includes(topicId)) {
+    appState._deletedEntityIds.push(topicId);
+  }
+
   appState.weeklyTopics = (appState.weeklyTopics || []).filter(t => t.id !== topicId);
-  saveState();
+  saveState(true);
   renderHodTopicTracker();
   renderHodTodayTopicsSummary();
   showToast('✓ Record removed.', 'info');
@@ -3977,13 +4043,17 @@ async function handleTeacherSubmitLeave(e) {
     department: dept,
     status: 'pending',
     substitute_teacher: null,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    updatedAt: Date.now()
   };
 
   // 1. Save to state & sync to Firebase Cloud Firestore immediately
   appState.leavesList = appState.leavesList || [];
   appState.leavesList.unshift(newLeave);
-  saveState();
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== newLeave.id);
+  }
+  saveState(true);
   renderHodLeaves();
   renderTeacherLeaves();
   renderTeacherDashboard();
@@ -4074,7 +4144,8 @@ async function handleApproveLeave(leaveId) {
 
     leave.status = 'approved';
     leave.substitute_teacher = subTeacher;
-    saveState();
+    leave.updatedAt = Date.now();
+    saveState(true);
     renderHodLeaves();
     renderTeacherLeaves();
     renderTeacherDashboard();
@@ -4093,7 +4164,8 @@ async function handleRejectLeave(leaveId) {
   if (leave) {
     if (!confirm(`Are you sure you want to reject the leave request for ${leave.teacher_name}?`)) return;
     leave.status = 'rejected';
-    saveState();
+    leave.updatedAt = Date.now();
+    saveState(true);
     renderHodLeaves();
     renderTeacherLeaves();
     renderTeacherDashboard();
@@ -4133,10 +4205,14 @@ async function handleAdminAddSubject(e) {
     type,
     weeklyHours: hours,
     dept,
-    semester: sem
+    semester: sem,
+    updatedAt: Date.now()
   };
 
   appState.subjectsList.push(newSubj);
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== code && id !== newSubj.id);
+  }
   saveState(true);
   renderAdminSubjects();
   if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
@@ -4190,11 +4266,15 @@ async function handleAdminAddRoom(e) {
     radius: radius,
     geo_radius_meters: radius,
     department: 'Information Technology',
-    status: 'Active'
+    status: 'Active',
+    updatedAt: Date.now()
   };
 
   appState.classroomsList.push(newRoom);
   appState.rooms = appState.classroomsList;
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== room_code && id !== newRoom.id);
+  }
   saveState(true);
   renderAdminRooms();
   if (typeof updateAllSelectDropdowns === 'function') updateAllSelectDropdowns();
@@ -4239,6 +4319,10 @@ async function setCurrentGPSForRoom() {
 async function handleDeleteSubject(subjectId, subjectCode) {
   if (!confirm(`Are you sure you want to delete subject ${subjectCode}?`)) return;
 
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (subjectId && !appState._deletedEntityIds.includes(subjectId)) appState._deletedEntityIds.push(subjectId);
+  if (subjectCode && !appState._deletedEntityIds.includes(subjectCode)) appState._deletedEntityIds.push(subjectCode);
+
   appState.subjectsList = appState.subjectsList.filter(s => (s.id !== subjectId && s.code !== subjectCode));
   saveState(true);
   renderAdminSubjects();
@@ -4257,6 +4341,10 @@ async function handleDeleteSubject(subjectId, subjectCode) {
 // 2. Delete Classroom
 async function handleDeleteRoom(roomId, roomCode) {
   if (!confirm(`Are you sure you want to delete classroom ${roomCode}?`)) return;
+
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (roomId && !appState._deletedEntityIds.includes(roomId)) appState._deletedEntityIds.push(roomId);
+  if (roomCode && !appState._deletedEntityIds.includes(roomCode)) appState._deletedEntityIds.push(roomCode);
 
   appState.classroomsList = (appState.classroomsList || []).filter(r => (r.id !== roomId && r.room !== roomCode));
   appState.rooms = appState.classroomsList;
@@ -4666,13 +4754,19 @@ function handleAdminAddBatch(e) {
     return;
   }
 
-  appState.studentBatches.push({
+  const newBatch = {
     id: 'batch-' + Date.now(),
     name,
     strength,
     sem,
-    baseRoom
-  });
+    baseRoom,
+    updatedAt: Date.now()
+  };
+
+  appState.studentBatches.push(newBatch);
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== name && id !== newBatch.id);
+  }
 
   saveState(true);
   renderAdminBatches();
@@ -4684,6 +4778,10 @@ function handleAdminAddBatch(e) {
 
 function handleDeleteBatch(batchId, batchName) {
   if (!confirm(`Are you sure you want to delete class batch ${batchName}?`)) return;
+
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (batchId && !appState._deletedEntityIds.includes(batchId)) appState._deletedEntityIds.push(batchId);
+  if (batchName && !appState._deletedEntityIds.includes(batchName)) appState._deletedEntityIds.push(batchName);
 
   appState.studentBatches = (appState.studentBatches || []).filter(b => b.id !== batchId && b.name !== batchName);
   saveState(true);
@@ -4785,11 +4883,15 @@ function handleAddSubjectMapping(e) {
     labBlockSize,
     labRoom,
     room: labRoom || 'Own Classroom',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    updatedAt: Date.now()
   };
 
   appState.subjectTeacherMappings = appState.subjectTeacherMappings || [];
   appState.subjectTeacherMappings.push(mappingObj);
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== mappingObj.id);
+  }
 
   saveState(true);
 
@@ -4809,6 +4911,12 @@ function handleAddSubjectMapping(e) {
 
 function handleDeleteSubjectMapping(mapId) {
   if (!confirm('Are you sure you want to delete this faculty subject mapping?')) return;
+
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (mapId && !appState._deletedEntityIds.includes(mapId)) {
+    appState._deletedEntityIds.push(mapId);
+  }
+
   appState.subjectTeacherMappings = (appState.subjectTeacherMappings || []).filter(m => m.id !== mapId);
   saveState(true);
 
@@ -5173,7 +5281,7 @@ async function runTimetableGeneration() {
   });
 
   appState.masterTimetableSlots = newMasterSlots;
-  saveState();
+  saveState(true);
 
   // Record newly generated draft in timetable versions list
   const nextVerNum = (appState.timetableVersions || []).length + 1;
@@ -5256,8 +5364,13 @@ function handleManualTimetableSubmit(e) {
 
   const slotContent = `${subject} (${teacher} • ${room})`;
   slotRow[`p${period}`] = slotContent;
+  slotRow.updatedAt = Date.now();
 
-  saveState();
+  if (appState._deletedEntityIds) {
+    appState._deletedEntityIds = appState._deletedEntityIds.filter(id => id !== slotRow.id);
+  }
+
+  saveState(true);
   renderAdminTimetable();
   closeModal('modal-manual-timetable');
   showToast(`Added manual slot for ${day} (${section}, Period ${period})!`, 'success');
@@ -5267,8 +5380,13 @@ function handleManualTimetableSubmit(e) {
 function handleDeleteTimetableSlot(slotId) {
   if (!confirm('Are you sure you want to remove this timetable schedule row?')) return;
 
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (slotId && !appState._deletedEntityIds.includes(slotId)) {
+    appState._deletedEntityIds.push(slotId);
+  }
+
   appState.masterTimetableSlots = appState.masterTimetableSlots.filter(s => s.id !== slotId);
-  saveState();
+  saveState(true);
   renderAdminTimetable();
   showToast('Timetable schedule row deleted.', 'info');
 }
@@ -5675,46 +5793,246 @@ function applyCloudState(cloudState) {
     appState.teachersList = deduplicateListByEmail(appState.teachersList);
   }
 
-  // Synchronize dynamic campus assets directly from Cloud Firestore
+  // 0. Merge deleted entity IDs tombstone
+  if (Array.isArray(cloudState._deletedEntityIds)) {
+    const localDeleted = new Set(appState._deletedEntityIds || []);
+    cloudState._deletedEntityIds.forEach(id => localDeleted.add(id));
+    appState._deletedEntityIds = Array.from(localDeleted);
+  }
+  const deletedSet = new Set(appState._deletedEntityIds || []);
+
+  // Synchronize dynamic campus assets directly from Cloud Firestore with smart merging
+  let hasLocalNewAdditions = false;
+
+  // 4. Smart Merge Subjects (PREVENT ACCIDENTAL WIPES)
   if (Array.isArray(cloudState.subjectsList)) {
-    appState.subjectsList = cloudState.subjectsList;
+    appState.subjectsList = appState.subjectsList || [];
+    cloudState.subjectsList.forEach(cs => {
+      if (!cs) return;
+      const code = (cs.code || '').toUpperCase().trim();
+      if (deletedSet.has(cs.id) || deletedSet.has(code)) return; // Skip deleted
+      const idx = appState.subjectsList.findIndex(s => (code && (s.code || '').toUpperCase().trim() === code) || (cs.id && s.id === cs.id));
+      if (idx !== -1) {
+        appState.subjectsList[idx] = { ...appState.subjectsList[idx], ...cs };
+      } else {
+        appState.subjectsList.push(cs);
+      }
+    });
+    // Remove locally any item confirmed deleted
+    appState.subjectsList = appState.subjectsList.filter(s => !deletedSet.has(s.id) && !deletedSet.has((s.code || '').toUpperCase().trim()));
+
+    // Check if local has items not yet in cloud
+    const cloudCodes = new Set(cloudState.subjectsList.map(s => (s.code || '').toUpperCase().trim()));
+    if (appState.subjectsList.some(s => s.code && !cloudCodes.has(s.code.toUpperCase().trim()))) {
+      hasLocalNewAdditions = true;
+    }
   }
-  if (Array.isArray(cloudState.classroomsList)) {
-    appState.classroomsList = cloudState.classroomsList;
-    appState.rooms = cloudState.classroomsList;
-  } else if (Array.isArray(cloudState.rooms)) {
-    appState.classroomsList = cloudState.rooms;
-    appState.rooms = cloudState.rooms;
+
+  // 5. Smart Merge Classrooms / Rooms (PREVENT ACCIDENTAL WIPES)
+  const incomingRooms = Array.isArray(cloudState.classroomsList) ? cloudState.classroomsList : (Array.isArray(cloudState.rooms) ? cloudState.rooms : null);
+  if (incomingRooms) {
+    appState.classroomsList = appState.classroomsList || [];
+    incomingRooms.forEach(cr => {
+      if (!cr) return;
+      const roomCode = (cr.room || '').toUpperCase().trim();
+      if (deletedSet.has(cr.id) || deletedSet.has(roomCode)) return; // Skip deleted
+      const idx = appState.classroomsList.findIndex(r => (roomCode && (r.room || '').toUpperCase().trim() === roomCode) || (cr.id && r.id === cr.id));
+      if (idx !== -1) {
+        appState.classroomsList[idx] = { ...appState.classroomsList[idx], ...cr };
+      } else {
+        appState.classroomsList.push(cr);
+      }
+    });
+    appState.classroomsList = appState.classroomsList.filter(r => !deletedSet.has(r.id) && !deletedSet.has((r.room || '').toUpperCase().trim()));
+    appState.rooms = appState.classroomsList;
+
+    const cloudRooms = new Set(incomingRooms.map(r => (r.room || '').toUpperCase().trim()));
+    if (appState.classroomsList.some(r => r.room && !cloudRooms.has(r.room.toUpperCase().trim()))) {
+      hasLocalNewAdditions = true;
+    }
   }
+
+  // 6. Smart Merge Student Batches / Classes (PREVENT ACCIDENTAL WIPES)
   if (Array.isArray(cloudState.studentBatches)) {
-    appState.studentBatches = cloudState.studentBatches;
+    appState.studentBatches = appState.studentBatches || [];
+    cloudState.studentBatches.forEach(cb => {
+      if (!cb) return;
+      const batchName = (cb.name || '').toUpperCase().trim();
+      if (deletedSet.has(cb.id) || deletedSet.has(batchName)) return; // Skip deleted
+      const idx = appState.studentBatches.findIndex(b => (batchName && (b.name || '').toUpperCase().trim() === batchName) || (cb.id && b.id === cb.id));
+      if (idx !== -1) {
+        appState.studentBatches[idx] = { ...appState.studentBatches[idx], ...cb };
+      } else {
+        appState.studentBatches.push(cb);
+      }
+    });
+    appState.studentBatches = appState.studentBatches.filter(b => !deletedSet.has(b.id) && !deletedSet.has((b.name || '').toUpperCase().trim()));
+
+    const cloudBatches = new Set(cloudState.studentBatches.map(b => (b.name || '').toUpperCase().trim()));
+    if (appState.studentBatches.some(b => b.name && !cloudBatches.has(b.name.toUpperCase().trim()))) {
+      hasLocalNewAdditions = true;
+    }
   }
-  if (Array.isArray(cloudState.masterTimetableSlots)) {
-    appState.masterTimetableSlots = cloudState.masterTimetableSlots;
-  }
-  if (Array.isArray(cloudState.timetableVersions)) {
-    appState.timetableVersions = cloudState.timetableVersions;
-  }
+
+  // 7. Smart Merge Subject-Faculty-Class Mappings (PREVENT ACCIDENTAL WIPES)
   if (Array.isArray(cloudState.subjectTeacherMappings)) {
-    appState.subjectTeacherMappings = cloudState.subjectTeacherMappings;
+    appState.subjectTeacherMappings = appState.subjectTeacherMappings || [];
+    cloudState.subjectTeacherMappings.forEach(cm => {
+      if (!cm) return;
+      if (deletedSet.has(cm.id)) return;
+      const idx = appState.subjectTeacherMappings.findIndex(m => m.id === cm.id || (m.teacher === cm.teacher && m.subject === cm.subject && JSON.stringify(m.sections || []) === JSON.stringify(cm.sections || [])));
+      if (idx !== -1) {
+        const localTime = appState.subjectTeacherMappings[idx].updatedAt || 0;
+        const cloudTime = cm.updatedAt || 0;
+        if (cloudTime >= localTime) {
+          appState.subjectTeacherMappings[idx] = { ...appState.subjectTeacherMappings[idx], ...cm };
+        }
+      } else {
+        appState.subjectTeacherMappings.push(cm);
+      }
+    });
+    appState.subjectTeacherMappings = appState.subjectTeacherMappings.filter(m => !deletedSet.has(m.id));
+
+    const cloudMappingIds = new Set(cloudState.subjectTeacherMappings.map(m => m.id));
+    if (appState.subjectTeacherMappings.some(m => m.id && !cloudMappingIds.has(m.id))) {
+      hasLocalNewAdditions = true;
+    }
   }
-  if (Array.isArray(cloudState.liveMonitoring)) {
-    appState.liveMonitoring = cloudState.liveMonitoring;
+
+  // 8. Smart Merge Leave Requests (PREVENT ACCIDENTAL WIPES & STATUS REVERSIONS)
+  if (Array.isArray(cloudState.leavesList)) {
+    appState.leavesList = appState.leavesList || [];
+    cloudState.leavesList.forEach(cl => {
+      if (!cl) return;
+      const leaveId = String(cl.id || cl._id || '');
+      if (deletedSet.has(leaveId)) return;
+      const idx = appState.leavesList.findIndex(l => String(l.id || l._id || '') === leaveId);
+      if (idx !== -1) {
+        const localLeave = appState.leavesList[idx];
+        const localTime = localLeave.updatedAt || 0;
+        const cloudTime = cl.updatedAt || 0;
+        if (cloudTime >= localTime) {
+          appState.leavesList[idx] = { ...localLeave, ...cl };
+        }
+      } else {
+        appState.leavesList.push(cl);
+      }
+    });
+    appState.leavesList = appState.leavesList.filter(l => !deletedSet.has(String(l.id || l._id || '')));
+
+    const cloudLeaveIds = new Set(cloudState.leavesList.map(l => String(l.id || l._id || '')));
+    if (appState.leavesList.some(l => l.id && !cloudLeaveIds.has(String(l.id)))) {
+      hasLocalNewAdditions = true;
+    }
+  }
+
+  // 9. Smart Merge Weekly Topics (PREVENT ACCIDENTAL WIPES)
+  if (Array.isArray(cloudState.weeklyTopics)) {
+    appState.weeklyTopics = appState.weeklyTopics || [];
+    cloudState.weeklyTopics.forEach(ct => {
+      if (!ct) return;
+      const topicId = ct.id || `top_${ct.weekKey || ct.week_key}_${ct.day}_${ct.period}_${ct.className || ct.class_name}`;
+      if (deletedSet.has(topicId) || deletedSet.has(ct.weekKey || ct.week_key)) return;
+      const idx = appState.weeklyTopics.findIndex(t => (t.id && ct.id && t.id === ct.id) || (t.weekKey === (ct.weekKey || ct.week_key) && String(t.period) === String(ct.period) && (t.className || '').toUpperCase() === (ct.className || ct.class_name || '').toUpperCase() && t.day === ct.day));
+      if (idx !== -1) {
+        const localTime = appState.weeklyTopics[idx].updatedAt || 0;
+        const cloudTime = ct.updatedAt || 0;
+        if (cloudTime >= localTime) {
+          appState.weeklyTopics[idx] = { ...appState.weeklyTopics[idx], ...ct };
+        }
+      } else {
+        appState.weeklyTopics.unshift(ct);
+      }
+    });
+    appState.weeklyTopics = appState.weeklyTopics.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.weekKey));
+
+    const cloudTopicIds = new Set(cloudState.weeklyTopics.map(t => t.id).filter(Boolean));
+    if (appState.weeklyTopics.some(t => t.id && !cloudTopicIds.has(t.id))) {
+      hasLocalNewAdditions = true;
+    }
+  }
+
+  // 10. Smart Merge Notifications
+  if (Array.isArray(cloudState.notificationsList)) {
+    appState.notificationsList = appState.notificationsList || [];
+    const existingNotifIds = new Set(appState.notificationsList.map(n => String(n.id || n._id || '')));
+    cloudState.notificationsList.forEach(cn => {
+      const nid = String(cn.id || cn._id || '');
+      if (nid && !existingNotifIds.has(nid)) {
+        appState.notificationsList.unshift(cn);
+        existingNotifIds.add(nid);
+      }
+    });
+  }
+
+  // 11. Smart Merge Master Timetable Slots (PREVENT ACCIDENTAL WIPES)
+  if (Array.isArray(cloudState.masterTimetableSlots)) {
+    appState.masterTimetableSlots = appState.masterTimetableSlots || [];
+    cloudState.masterTimetableSlots.forEach(cs => {
+      if (!cs || deletedSet.has(cs.id)) return;
+      const idx = appState.masterTimetableSlots.findIndex(s => s.id === cs.id || (s.day === cs.day && s.section === cs.section));
+      if (idx !== -1) {
+        const localTime = appState.masterTimetableSlots[idx].updatedAt || 0;
+        const cloudTime = cs.updatedAt || 0;
+        if (cloudTime >= localTime) {
+          appState.masterTimetableSlots[idx] = { ...appState.masterTimetableSlots[idx], ...cs };
+        }
+      } else {
+        appState.masterTimetableSlots.push(cs);
+      }
+    });
+    appState.masterTimetableSlots = appState.masterTimetableSlots.filter(s => !deletedSet.has(s.id));
+    const cloudSlotIds = new Set(cloudState.masterTimetableSlots.map(s => s.id));
+    if (appState.masterTimetableSlots.some(s => s.id && !cloudSlotIds.has(s.id))) {
+      hasLocalNewAdditions = true;
+    }
+  }
+
+  // 12. Smart Merge Timetable Versions
+  if (Array.isArray(cloudState.timetableVersions)) {
+    appState.timetableVersions = appState.timetableVersions || [];
+    const existingVersions = new Set(appState.timetableVersions.map(v => v.version));
+    cloudState.timetableVersions.forEach(cv => {
+      if (cv && cv.version && !existingVersions.has(cv.version)) {
+        appState.timetableVersions.push(cv);
+        existingVersions.add(cv.version);
+      }
+    });
+  }
+  if (Array.isArray(cloudState.liveMonitoring) && cloudState.liveMonitoring.length > 0) {
+    // Only use cloud liveMonitoring as a fallback seed when local timetable has no slots configured.
+    // Otherwise liveMonitoring is always freshly computed by renderHodDashboard() from masterTimetableSlots.
+    if ((appState.masterTimetableSlots || []).length === 0) {
+      appState.liveMonitoring = cloudState.liveMonitoring;
+    }
   }
   if (cloudState.collegeBellSchedule) {
     appState.collegeBellSchedule = cloudState.collegeBellSchedule;
   }
-  if (Array.isArray(cloudState.leavesList)) {
-    appState.leavesList = cloudState.leavesList;
-  }
-  if (Array.isArray(cloudState.notificationsList)) {
-    appState.notificationsList = cloudState.notificationsList;
-  }
   if (cloudState.teacherDutyReports && typeof cloudState.teacherDutyReports === 'object') {
-    appState.teacherDutyReports = { ...(appState.teacherDutyReports || {}), ...cloudState.teacherDutyReports };
+    // Merge per-day duty reports — newer local report always wins to prevent status reversal
+    appState.teacherDutyReports = appState.teacherDutyReports || {};
+    Object.entries(cloudState.teacherDutyReports).forEach(([dateKey, reportMap]) => {
+      if (!appState.teacherDutyReports[dateKey]) {
+        appState.teacherDutyReports[dateKey] = reportMap;
+      } else {
+        // Merge per-teacher report — keep whichever has more recent timestamp
+        Object.entries(reportMap || {}).forEach(([email, cloudReport]) => {
+          const localReport = appState.teacherDutyReports[dateKey][email];
+          if (!localReport || (cloudReport.timestamp || 0) > (localReport.timestamp || 0)) {
+            appState.teacherDutyReports[dateKey][email] = cloudReport;
+          }
+        });
+      }
+    });
   }
-  if (Array.isArray(cloudState.weeklyTopics)) {
-    appState.weeklyTopics = cloudState.weeklyTopics;
+
+  // If local state had newly created items that the incoming cloud snapshot was missing,
+  // immediately push them back to cloud so next snapshot contains the full truth.
+  if (hasLocalNewAdditions) {
+    console.log("☁️ [applyCloudState] Local additions detected — immediately re-syncing to cloud.");
+    saveState(true); // immediate Firestore write
+    return; // saveState(true) already updates localStorage, no need to proceed
   }
 
   // Update local storage cache
