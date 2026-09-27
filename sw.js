@@ -1,5 +1,5 @@
-// FOLIO Service Worker v33.0.0 (Pre-Deploy: Firestore merge fix, notificationsList guard, tombstone on timetableVersions, WS reconnect userId)
-const CACHE_NAME = "folio-v33";
+// FOLIO Service Worker v34.0.0 (Security Hardening: Admin-only tombstone mutations & Firestore Admin Registry)
+const CACHE_NAME = "folio-v34";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

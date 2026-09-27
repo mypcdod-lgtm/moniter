@@ -1,4 +1,4 @@
-﻿rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -7,10 +7,40 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Helper: Check if authenticated user is registered as an Administrator
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email != null && (
+        !exists(/databases/$(database)/documents/campus_system/admins) ||
+        request.auth.token.email.lower() in get(/databases/$(database)/documents/campus_system/admins).data.emails
+      );
+    }
+
     // Enterprise Password Guard: Forbid any document containing a plaintext password
     function hasNoPlaintextPassword() {
       return !('password' in request.resource.data) &&
              (!('users' in request.resource.data) || !request.resource.data.users.hasAny(['password']));
+    }
+
+    // Tombstone Protection Guard (H4):
+    // Only verified Administrators can mutate _deletedEntityIds (add or change tombstones).
+    // Regular faculty/staff updates (duty reports, check-ins, leaves, topics) are allowed
+    // as long as _deletedEntityIds remains unchanged.
+    function isAllowedTombstoneOperation() {
+      return resource == null ||
+             (!('_deletedEntityIds' in request.resource.data) && !('_deletedEntityIds' in resource.data)) ||
+             (('_deletedEntityIds' in request.resource.data) && ('_deletedEntityIds' in resource.data) && request.resource.data._deletedEntityIds == resource.data._deletedEntityIds) ||
+             isAdmin();
+    }
+
+    // Admin Registry document (campus_system/admins)
+    // Stores authorized admin emails: { emails: ["admin@college.edu", ...] }
+    match /campus_system/admins {
+      allow read: if isAuthenticated();
+      // Only existing admins can add/remove admin emails (or bootstrap if document doesn't exist yet)
+      allow write: if isAuthenticated() && (
+        !exists(/databases/$(database)/documents/campus_system/admins) ||
+        (request.auth.token.email != null && request.auth.token.email.lower() in resource.data.emails)
+      );
     }
 
     // Campus System State collection (campus_system/state)
@@ -18,8 +48,11 @@ service cloud.firestore {
       // Allow authenticated campus faculty and students to read campus state
       allow read: if isAuthenticated();
 
-      // Allow write only if authenticated and password properties are NOT included
-      allow write: if isAuthenticated() && hasNoPlaintextPassword();
+      // Allow write only if authenticated, password properties are absent,
+      // and tombstone modifications are performed by verified Administrators
+      allow write: if isAuthenticated() && 
+                      hasNoPlaintextPassword() && 
+                      isAllowedTombstoneOperation();
     }
 
     // Users directory collection
@@ -34,3 +67,4 @@ service cloud.firestore {
     }
   }
 }
+

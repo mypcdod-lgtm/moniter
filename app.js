@@ -376,6 +376,13 @@ async function handleAddAdmin(e) {
     appState.users = deduplicateUsersByEmail(appState.users);
 
     saveState(true);
+
+    // Register in Firestore admin registry so Firestore rules can verify admin identity
+    // for tombstone (delete) writes across all devices
+    if (window.FirebaseDb && typeof window.FirebaseDb.registerAdminEmail === 'function') {
+      window.FirebaseDb.registerAdminEmail(email).catch(e => console.warn('Admin registry note:', e.message));
+    }
+
     closeModal('modal-add-admin');
     showToast(`Administrator account for ${name} created successfully!`, 'success');
     const form = document.getElementById('form-add-admin');
@@ -565,6 +572,11 @@ async function handleLogin(e) {
   appState.activeRole = user.role;
   saveState(true);
 
+  // If user is Admin, register in Firestore admin registry for Firestore security rules
+  if (user.role === 'admin' && window.FirebaseDb && typeof window.FirebaseDb.registerAdminEmail === 'function') {
+    window.FirebaseDb.registerAdminEmail(user.email).catch(() => {});
+  }
+
   // Connect ApiClient Auth Token (Session-scoped)
   if (window.ApiClient && firebaseToken) {
     ApiClient.setAuthToken(firebaseToken);
@@ -677,6 +689,11 @@ async function handleGoogleLogin() {
       subject: user.subject || ''
     });
     appState.activeRole = user.role;
+
+    // If user is Admin, register in Firestore admin registry for Firestore security rules
+    if (user.role === 'admin' && window.FirebaseDb && typeof window.FirebaseDb.registerAdminEmail === 'function') {
+      window.FirebaseDb.registerAdminEmail(user.email).catch(() => {});
+    }
 
     if (window.ApiClient) {
       ApiClient.setAuthToken(token);
@@ -6252,6 +6269,20 @@ function applyCloudState(cloudState) {
   try {
     localStorage.setItem('mymonitor_state', JSON.stringify(appState));
   } catch (e) {}
+
+  // Auto-sync admin accounts to Firestore admin registry if currently authenticated as Admin
+  if (appState.currentUser && appState.currentUser.role === 'admin' && window.FirebaseDb && typeof window.FirebaseDb.registerAdminEmail === 'function') {
+    const adminEmails = (appState.users || [])
+      .filter(u => u.role === 'admin')
+      .map(u => (u.email || '').toLowerCase().trim());
+    if (appState.currentUser.email) {
+      adminEmails.push(appState.currentUser.email.toLowerCase().trim());
+    }
+    const uniqueAdmins = Array.from(new Set(adminEmails.filter(Boolean)));
+    uniqueAdmins.forEach(em => {
+      window.FirebaseDb.registerAdminEmail(em).catch(() => {});
+    });
+  }
 
   // Immediately refresh all views and dynamic dropdowns across portal
   renderActiveViews();

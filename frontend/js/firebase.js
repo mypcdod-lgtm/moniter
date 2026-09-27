@@ -15,7 +15,9 @@ import {
   doc,
   setDoc,
   getDoc,
-  onSnapshot
+  onSnapshot,
+  arrayUnion,
+  arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // User's Firebase web app configuration
@@ -213,6 +215,38 @@ window.FirebaseDb = {
     } catch (err) {
       console.warn("⚠️ Firestore subscription notice:", err.message);
       return () => {};
+    }
+  },
+
+  // ── Admin Registry ──────────────────────────────────────────────────────────
+  // Maintains campus_system/admins document: { emails: ["admin@college.edu", ...] }
+  // The Firestore security rule reads this document to decide who can write tombstones.
+
+  // Call when a new admin account is created
+  async registerAdminEmail(email) {
+    try {
+      if (!db || !email) return false;
+      const clean = email.toLowerCase().trim();
+      await setDoc(doc(db, "campus_system", "admins"), { emails: arrayUnion(clean) }, { merge: true });
+      console.log("🛡️ Admin email registered in Firestore admin registry:", clean);
+      return true;
+    } catch (err) {
+      console.warn("⚠️ Admin registry register notice:", err.message);
+      return false;
+    }
+  },
+
+  // Call when an admin account is deleted / revoked
+  async revokeAdminEmail(email) {
+    try {
+      if (!db || !email) return false;
+      const clean = email.toLowerCase().trim();
+      await setDoc(doc(db, "campus_system", "admins"), { emails: arrayRemove(clean) }, { merge: true });
+      console.log("🛡️ Admin email removed from Firestore admin registry:", clean);
+      return true;
+    } catch (err) {
+      console.warn("⚠️ Admin registry revoke notice:", err.message);
+      return false;
     }
   }
 };
