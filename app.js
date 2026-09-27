@@ -4492,6 +4492,18 @@ async function handleDeleteTeacher(teacherId, teacherName) {
   const target = (appState.teachersList || []).find(t => String(t.id) === String(teacherId) || t.name === teacherName);
   const targetEmail = (target?.email || '').toLowerCase().trim();
 
+  // Add to tombstone so ALL other devices honour this deletion on next cloud sync
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (teacherId && !appState._deletedEntityIds.includes(String(teacherId))) {
+    appState._deletedEntityIds.push(String(teacherId));
+  }
+  if (targetEmail && !appState._deletedEntityIds.includes(targetEmail)) {
+    appState._deletedEntityIds.push(targetEmail);
+  }
+  if (teacherName && !appState._deletedEntityIds.includes(`teacher:${teacherName}`)) {
+    appState._deletedEntityIds.push(`teacher:${teacherName}`);
+  }
+
   appState.teachersList = (appState.teachersList || []).filter(t => {
     const matchesId = String(t.id) === String(teacherId);
     const matchesName = t.name === teacherName;
@@ -4506,7 +4518,7 @@ async function handleDeleteTeacher(teacherId, teacherName) {
   renderAdminTables();
   renderHodTeachers();
   updateAllSelectDropdowns();
-  showToast(`Staff member ${teacherName} removed.`, 'info');
+  showToast(`Staff member ${teacherName} removed from all devices.`, 'info');
 
   if (window.ApiClient && teacherId) {
     try {
@@ -4523,6 +4535,19 @@ async function handleDeleteHod(hodId, hodEmail, hodName) {
   if (!confirm(`Are you sure you want to remove HOD ${hodName}?`)) return;
 
   const cleanEmail = (hodEmail || '').toLowerCase().trim();
+
+  // Add to tombstone so ALL other devices honour this deletion on next cloud sync
+  appState._deletedEntityIds = appState._deletedEntityIds || [];
+  if (hodId && !appState._deletedEntityIds.includes(String(hodId))) {
+    appState._deletedEntityIds.push(String(hodId));
+  }
+  if (cleanEmail && !appState._deletedEntityIds.includes(cleanEmail)) {
+    appState._deletedEntityIds.push(cleanEmail);
+  }
+  if (hodName && !appState._deletedEntityIds.includes(`hod:${hodName}`)) {
+    appState._deletedEntityIds.push(`hod:${hodName}`);
+  }
+
   appState.hodsList = (appState.hodsList || []).filter(h => {
     const matchesId = String(h.id) === String(hodId);
     const matchesEmail = cleanEmail && (h.email || '').toLowerCase().trim() === cleanEmail;
@@ -4534,7 +4559,7 @@ async function handleDeleteHod(hodId, hodEmail, hodName) {
   }
   saveState(true);
   renderAdminTables();
-  showToast(`HOD account for ${hodName} removed.`, 'info');
+  showToast(`HOD account for ${hodName} removed from all devices.`, 'info');
 
   if (window.ApiClient) {
     try {
@@ -5871,12 +5896,24 @@ function syncFromCloudFirestore() {
 function applyCloudState(cloudState) {
   if (!cloudState) return;
 
-  // Merge users safely
+  // ─── STEP 0: Merge tombstones FIRST ─────────────────────────────────────────
+  // This MUST run before any entity merge so deleted entries are never re-added.
+  if (Array.isArray(cloudState._deletedEntityIds)) {
+    const localDeleted = new Set(appState._deletedEntityIds || []);
+    cloudState._deletedEntityIds.forEach(id => localDeleted.add(id));
+    appState._deletedEntityIds = Array.from(localDeleted);
+  }
+  const deletedSet = new Set(appState._deletedEntityIds || []);
+
+  // ─── STEP 1: Merge users (skip tombstoned emails/ids) ────────────────────────
   if (Array.isArray(cloudState.users)) {
     const currentUserEmail = (appState.currentUser?.email || '').toLowerCase().trim();
     const existingEmails = new Set(appState.users.map(u => (u.email || '').toLowerCase().trim()));
     cloudState.users.forEach(u => {
       const email = (u.email || '').toLowerCase().trim();
+      const uid = String(u.id || u._id || '');
+      // Skip if tombstoned by id or email
+      if ((uid && deletedSet.has(uid)) || (email && deletedSet.has(email))) return;
       if (email && !existingEmails.has(email)) {
         appState.users.push(u);
         existingEmails.add(email);
@@ -5884,53 +5921,77 @@ function applyCloudState(cloudState) {
         const idx = appState.users.findIndex(x => (x.email || '').toLowerCase().trim() === email);
         if (idx !== -1) {
           // CRITICAL: Never let cloud overwrite the role of the currently logged-in user.
-          // The role was already resolved via the strict priority chain at login time.
           const merged = { ...appState.users[idx], ...u };
           if (currentUserEmail && email === currentUserEmail) {
-            merged.role = appState.users[idx].role; // Preserve local role — do NOT let cloud revert it
+            merged.role = appState.users[idx].role;
           }
           appState.users[idx] = merged;
         }
       }
     });
-    appState.users = deduplicateUsersByEmail(appState.users);
+    // Remove any locally stored users that have since been tombstoned
+    appState.users = deduplicateUsersByEmail(
+      appState.users.filter(u => {
+        const email = (u.email || '').toLowerCase().trim();
+        const uid = String(u.id || '');
+        return !deletedSet.has(email) && !deletedSet.has(uid);
+      })
+    );
   }
 
-  // Merge HODs list
+  // ─── STEP 2: Merge HODs (skip tombstoned ids/emails) ─────────────────────────
   if (Array.isArray(cloudState.hodsList)) {
     cloudState.hodsList.forEach(h => {
       const email = (h.email || '').toLowerCase().trim();
-      const idx = appState.hodsList.findIndex(x => (email && (x.email || '').toLowerCase().trim() === email) || String(x.id) === String(h.id));
+      const hid = String(h.id || '');
+      // Skip if tombstoned
+      if ((hid && deletedSet.has(hid)) || (email && deletedSet.has(email)) ||
+          (h.name && deletedSet.has(`hod:${h.name}`))) return;
+      const idx = appState.hodsList.findIndex(x =>
+        (email && (x.email || '').toLowerCase().trim() === email) || (hid && String(x.id) === hid)
+      );
       if (idx !== -1) {
         appState.hodsList[idx] = { ...appState.hodsList[idx], ...h };
       } else {
         appState.hodsList.push(h);
       }
     });
-    appState.hodsList = deduplicateListByEmail(appState.hodsList);
+    // Remove any locally stored HODs that have since been tombstoned
+    appState.hodsList = deduplicateListByEmail(
+      appState.hodsList.filter(h => {
+        const email = (h.email || '').toLowerCase().trim();
+        const hid = String(h.id || '');
+        return !deletedSet.has(email) && !deletedSet.has(hid) && !deletedSet.has(`hod:${h.name || ''}`);
+      })
+    );
   }
 
-  // Merge Teachers list
+  // ─── STEP 3: Merge Teachers (skip tombstoned ids/emails) ─────────────────────
   if (Array.isArray(cloudState.teachersList)) {
     cloudState.teachersList.forEach(t => {
       const email = (t.email || '').toLowerCase().trim();
-      const idx = appState.teachersList.findIndex(x => (email && (x.email || '').toLowerCase().trim() === email) || String(x.id) === String(t.id));
+      const tid = String(t.id || '');
+      // Skip if tombstoned
+      if ((tid && deletedSet.has(tid)) || (email && deletedSet.has(email)) ||
+          (t.name && deletedSet.has(`teacher:${t.name}`))) return;
+      const idx = appState.teachersList.findIndex(x =>
+        (email && (x.email || '').toLowerCase().trim() === email) || (tid && String(x.id) === tid)
+      );
       if (idx !== -1) {
         appState.teachersList[idx] = { ...appState.teachersList[idx], ...t };
       } else {
         appState.teachersList.push(t);
       }
     });
-    appState.teachersList = deduplicateListByEmail(appState.teachersList);
+    // Remove any locally stored teachers that have since been tombstoned
+    appState.teachersList = deduplicateListByEmail(
+      appState.teachersList.filter(t => {
+        const email = (t.email || '').toLowerCase().trim();
+        const tid = String(t.id || '');
+        return !deletedSet.has(email) && !deletedSet.has(tid) && !deletedSet.has(`teacher:${t.name || ''}`);
+      })
+    );
   }
-
-  // 0. Merge deleted entity IDs tombstone
-  if (Array.isArray(cloudState._deletedEntityIds)) {
-    const localDeleted = new Set(appState._deletedEntityIds || []);
-    cloudState._deletedEntityIds.forEach(id => localDeleted.add(id));
-    appState._deletedEntityIds = Array.from(localDeleted);
-  }
-  const deletedSet = new Set(appState._deletedEntityIds || []);
 
   // Synchronize dynamic campus assets directly from Cloud Firestore with smart merging
   let hasLocalNewAdditions = false;

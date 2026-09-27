@@ -1,5 +1,5 @@
-// FOLIO Service Worker v31.0.0 (Full Project Audit: Substitute Sync, State Cleanup, Clean Filters & Role Hardening)
-const CACHE_NAME = "folio-v31";
+// FOLIO Service Worker v32.0.0 (Multi-Device Delete Sync: tombstone-first merge for HODs, Teachers, Users)
+const CACHE_NAME = "folio-v32";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
