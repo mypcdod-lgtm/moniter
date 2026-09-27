@@ -48,6 +48,8 @@ const DEFAULT_STATE = {
   teacherTodayClasses: [],
   leavesList: [],
   weeklyTopics: [],
+  notificationsList: [],
+  _deletedEntityIds: [],
   teacherDutyReports: {},
   hodSelectedDeptFilter: 'ALL'
 };
@@ -96,9 +98,14 @@ if (!Array.isArray(appState.masterTimetableSlots)) appState.masterTimetableSlots
 if (!Array.isArray(appState.liveMonitoring)) appState.liveMonitoring = [];
 if (!Array.isArray(appState.leavesList)) appState.leavesList = [];
 if (!Array.isArray(appState.weeklyTopics)) appState.weeklyTopics = [];
+if (!Array.isArray(appState.notificationsList)) appState.notificationsList = [];
+if (!Array.isArray(appState._deletedEntityIds)) appState._deletedEntityIds = [];
 if (typeof appState.teacherDutyReports !== 'object' || appState.teacherDutyReports === null) appState.teacherDutyReports = {};
 if (!appState.hodSelectedDeptFilter) appState.hodSelectedDeptFilter = 'ALL';
 if (!appState.collegeBellSchedule) appState.collegeBellSchedule = DEFAULT_STATE.collegeBellSchedule;
+if (!appState.hodStats || typeof appState.hodStats !== 'object') {
+  appState.hodStats = { totalClasses: 0, active: 0, scheduled: 0, vacant: 0, substitute: 0 };
+}
 
 // Automatic Cleanup of Legacy Hardcoded Mock Data & Default Credentials
 if (!appState._cleanDataV22) {
@@ -787,30 +794,42 @@ async function syncWithBackend() {
       appState.hodStats.substitute = appState.liveMonitoring.filter(c => c.status === 'SUBSTITUTE').length;
     }
 
-    // 2. Sync Teachers
+    // 2. Sync Teachers (merge from backend, but respect tombstones — never re-add deleted teachers)
     const teachers = await ApiClient.getTeachers(dept);
     if (teachers && teachers.length > 0) {
-      appState.teachersList = deduplicateListByEmail(teachers.map((t, idx) => ({
-        id: t.id || t._id || idx + 1,
-        name: t.name,
-        email: t.email,
-        subject: t.subject,
-        dept: t.department || 'IT',
-        workload: t.workload || '16 hrs/wk',
-        status: t.status || 'Available'
-      })));
+      const backendDeletedSet = new Set(appState._deletedEntityIds || []);
+      const mapped = teachers
+        .map((t, idx) => ({
+          id: t.id || t._id || idx + 1,
+          name: t.name,
+          email: t.email,
+          subject: t.subject,
+          dept: t.department || 'IT',
+          workload: t.workload || '16 hrs/wk',
+          status: t.status || 'Available'
+        }))
+        .filter(t => {
+          // Skip if tombstoned by id, email, or teacher:name
+          const email = (t.email || '').toLowerCase().trim();
+          const tid = String(t.id || '');
+          return !backendDeletedSet.has(email) && !backendDeletedSet.has(tid) && !backendDeletedSet.has(`teacher:${t.name || ''}`);
+        });
+      appState.teachersList = deduplicateListByEmail(mapped);
     }
 
-    // 3. Sync Timetable Versions
+    // 3. Sync Timetable Versions (respect tombstones)
     const versions = await ApiClient.getTimetableVersions(dept);
     if (versions && versions.length > 0) {
-      appState.timetableVersions = versions.map(v => ({
-        version: v.version,
-        status: v.status,
-        term: v.term,
-        appliedAt: v.applied_at || 'Recently',
-        generatedBy: v.generated_by
-      }));
+      const backendDeletedSet = new Set(appState._deletedEntityIds || []);
+      appState.timetableVersions = versions
+        .filter(v => !backendDeletedSet.has(v.version))
+        .map(v => ({
+          version: v.version,
+          status: v.status,
+          term: v.term,
+          appliedAt: v.applied_at || 'Recently',
+          generatedBy: v.generated_by
+        }));
     }
 
     // 4. Sync Classrooms (Merge safely to prevent wiping local rooms)
@@ -6180,16 +6199,18 @@ function applyCloudState(cloudState) {
     }
   }
 
-  // 12. Smart Merge Timetable Versions
+  // 12. Smart Merge Timetable Versions (with tombstone check)
   if (Array.isArray(cloudState.timetableVersions)) {
     appState.timetableVersions = appState.timetableVersions || [];
     const existingVersions = new Set(appState.timetableVersions.map(v => v.version));
     cloudState.timetableVersions.forEach(cv => {
-      if (cv && cv.version && !existingVersions.has(cv.version)) {
+      if (cv && cv.version && !deletedSet.has(cv.version) && !existingVersions.has(cv.version)) {
         appState.timetableVersions.push(cv);
         existingVersions.add(cv.version);
       }
     });
+    // Purge any locally cached versions that are now tombstoned
+    appState.timetableVersions = appState.timetableVersions.filter(v => !deletedSet.has(v.version));
   }
   if (Array.isArray(cloudState.liveMonitoring) && cloudState.liveMonitoring.length > 0) {
     // Only use cloud liveMonitoring as a fallback seed when local timetable has no slots configured.

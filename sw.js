@@ -1,5 +1,5 @@
-// FOLIO Service Worker v32.0.0 (Multi-Device Delete Sync: tombstone-first merge for HODs, Teachers, Users)
-const CACHE_NAME = "folio-v32";
+// FOLIO Service Worker v33.0.0 (Pre-Deploy: Firestore merge fix, notificationsList guard, tombstone on timetableVersions, WS reconnect userId)
+const CACHE_NAME = "folio-v33";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

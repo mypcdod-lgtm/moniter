@@ -107,7 +107,10 @@ class WebSocketClient {
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect(this.department);
+      // Pass current user identity so reconnected stream isn't anonymous
+      const user = (window.appState && window.appState.currentUser) ? window.appState.currentUser : null;
+      const userId = user ? (user.email || user.id) : null;
+      this.connect(this.department, userId);
     }, 3000);
   }
 

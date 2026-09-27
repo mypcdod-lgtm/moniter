@@ -126,7 +126,7 @@ window.FirebaseDb = {
         }
       }
 
-      await setDoc(doc(db, "campus_system", "state"), cleanState, { merge: true });
+      await setDoc(doc(db, "campus_system", "state"), cleanState);
       console.log("☁️ State synced to Firebase Cloud Firestore securely (all passwords stripped)!");
       return true;
     } catch (err) {
