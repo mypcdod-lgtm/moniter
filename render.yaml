@@ -1,4 +1,4 @@
-﻿services:
+services:
   # FastAPI Backend Web Service
   - type: web
     name: mymonitorxx-backend
@@ -19,4 +19,5 @@
       - key: DEV_MODE
         value: false
       - key: CORS_ORIGINS
-        value: "https://canvaonly322.github.io,http://localhost:3000,http://localhost:5500"
+        value: "https://mypcdod-lgtm.github.io,https://canvaonly322.github.io,http://localhost:3000,http://localhost:5500"
+
