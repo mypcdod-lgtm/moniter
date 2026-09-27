@@ -436,6 +436,20 @@ async function handleLogin(e) {
     }
   }
 
+  // 1b. Immediately pull latest authoritative state from Firebase Cloud Firestore
+  // This guarantees that on a brand new device or fresh browser (where localStorage is empty),
+  // all users, HODs, faculty, and batches are loaded into appState before role resolution runs.
+  if (authSuccess && window.FirebaseDb && typeof window.FirebaseDb.loadAppState === 'function') {
+    try {
+      const cloudData = await window.FirebaseDb.loadAppState();
+      if (cloudData) {
+        applyCloudState(cloudData);
+      }
+    } catch (e) {
+      console.warn('Post-login cloud state load notice:', e.message);
+    }
+  }
+
   // 2–4. Role Resolution via STRICT PRIORITY CHAIN:
   //   Priority 1: hodsList (most authoritative — HOD was explicitly registered by admin)
   //   Priority 2: teachersList (registered by HOD)
@@ -613,6 +627,18 @@ async function handleGoogleLogin() {
     const token = res.token;
     const gEmail = gUser.email.toLowerCase();
     console.log('Google login user:', gEmail);
+
+    // Immediately pull latest authoritative state from Firebase Cloud Firestore
+    if (window.FirebaseDb && typeof window.FirebaseDb.loadAppState === 'function') {
+      try {
+        const cloudData = await window.FirebaseDb.loadAppState();
+        if (cloudData) {
+          applyCloudState(cloudData);
+        }
+      } catch (e) {
+        console.warn('Post-Google-login cloud state load notice:', e.message);
+      }
+    }
 
     // Use same strict priority chain as email/password login
     let user = null;
@@ -5897,6 +5923,17 @@ document.addEventListener('DOMContentLoaded', () => {
     syncWithBackend();
   }
 
+  // Listen for Firebase Auth state changes (session rehydration on page refresh or login)
+  if (window.FirebaseAuth && typeof window.FirebaseAuth.onAuthStateChanged === 'function') {
+    window.FirebaseAuth.onAuthStateChanged((fbUser) => {
+      if (fbUser) {
+        console.log('🔥 [FirebaseAuth] Session verified for:', fbUser.email);
+        // Sync authoritative state from Cloud Firestore now that user is signed in
+        syncFromCloudFirestore();
+      }
+    });
+  }
+
   // Start Real-Time Firebase Cloud Sync across PC & Mobile
   syncFromCloudFirestore();
 });
@@ -5921,8 +5958,8 @@ function syncFromCloudFirestore() {
   window.FirebaseDb.loadAppState().then((cloudData) => {
     if (cloudData) {
       applyCloudState(cloudData);
-    } else {
-      // If cloud is empty, seed it with initial application state
+    } else if (Array.isArray(appState.users) && appState.users.length > 0) {
+      // Only seed cloud if local state actually has real data (never overwrite with empty state on fresh devices)
       console.log('☁️ Initializing Firebase Cloud Firestore with seed state...');
       window.FirebaseDb.saveAppState(appState);
     }

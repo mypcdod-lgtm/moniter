@@ -1,5 +1,5 @@
-// FOLIO Service Worker v34.0.0 (Security Hardening: Admin-only tombstone mutations & Firestore Admin Registry)
-const CACHE_NAME = "folio-v34";
+// FOLIO Service Worker v35.0.0 (Cloud-First Sync: On-login cloud state hydration, onAuthStateChanged re-sync)
+const CACHE_NAME = "folio-v35";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
